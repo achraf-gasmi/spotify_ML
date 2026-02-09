@@ -1,0 +1,124 @@
+:root {
+  --bg-primary: #121212;
+  --bg-secondary: #181818;
+  --bg-elevated: #282828;
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --accent: #1db954;
+  --accent-hover: #1ed760;
+  --error: #e91429;
+  --border-radius: 8px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--accent);
+}
+
+.card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  transition: background-color 0.3s ease;
+}
+
+.card:hover {
+  background-color: var(--bg-elevated);
+}
+
+.btn {
+  background-color: var(--accent);
+  color: var(--text-primary);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 500px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.1s ease, background-color 0.2s;
+}
+
+.btn:hover {
+  background-color: var(--accent-hover);
+  transform: scale(1.05);
+}
+
+.input {
+  background-color: var(--bg-elevated);
+  border: 1px solid transparent;
+  border-radius: 500px;
+  padding: 12px 20px;
+  color: var(--text-primary);
+  width: 100%;
+  font-size: 1rem;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--text-secondary);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.flex-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.track-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm);
+  cursor: pointer;
+}
+
+.track-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.track-title {
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.track-artist {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}

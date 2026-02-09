@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Environment
+.env
+
+# Data
+data/
+*.csv
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env

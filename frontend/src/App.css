@@ -1,0 +1,5 @@
+/* App.css */
+/* Minimal specific styles, mainly using globals from index.css */
+.selected {
+  background-color: var(--bg-elevated);
+}
