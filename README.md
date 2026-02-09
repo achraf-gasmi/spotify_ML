@@ -81,5 +81,4 @@ Frontend runs at: `http://localhost:5173`
 - Genre classification visualization
 - Integration with Spotify Web API for playback
 
-## 📄 License
-MIT
+
