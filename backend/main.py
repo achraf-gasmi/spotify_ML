@@ -73,5 +73,64 @@ def get_recommendations(track_id: str, limit: int = 20):
         "recommendations": recommendations
     }
 
+@app.get("/api/v1/recommendations/mood/{mood_name}")
+def get_mood_recommendations(mood_name: str, limit: int = 20):
+    valid_moods = ['happy', 'sad', 'energetic', 'calm', 'focused']
+    if mood_name.lower() not in valid_moods:
+        raise HTTPException(status_code=400, detail=f"Invalid mood. Available moods: {', '.join(valid_moods)}")
+        
+    recommendations = recommender.get_recommendations_by_mood(mood_name, limit)
+    return {
+        "mood": mood_name,
+        "recommendations": recommendations,
+        "count": len(recommendations)
+    }
+
+
+
+class CustomFeatures(BaseModel):
+    danceability: Optional[float] = 0.5
+    energy: Optional[float] = 0.5
+    valence: Optional[float] = 0.5
+    acousticness: Optional[float] = 0.5
+    instrumentalness: Optional[float] = 0.5
+    # Add others as needed, keeping it simple for UI
+
+@app.post("/api/v1/recommendations/custom")
+def get_custom_recommendations(features: CustomFeatures, limit: int = 20):
+    feature_dict = features.dict()
+    recommendations = recommender.get_recommendations_by_features(feature_dict, limit)
+    return {
+        "features": feature_dict,
+        "recommendations": recommendations,
+        "count": len(recommendations)
+    }
+
+
+
+@app.get("/api/v1/genres")
+def get_genres():
+    genres = recommender.get_genres()
+    return {"genres": genres, "count": len(genres)}
+
+@app.get("/api/v1/genres/{genre_name}/tracks")
+def get_genre_tracks(genre_name: str, limit: int = 20):
+    tracks = recommender.get_tracks_by_genre(genre_name, limit)
+    return {
+        "genre": genre_name,
+        "tracks": tracks,
+        "count": len(tracks)
+    }
+
+from classifier import GenreClassifier
+classifier = GenreClassifier()
+
+@app.post("/api/v1/classify")
+def classify_genre(features: CustomFeatures):
+    result = classifier.predict(features.dict())
+    if not result:
+        raise HTTPException(status_code=500, detail="Model not loaded or prediction failed")
+    return result
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -1,27 +1,60 @@
-# Spotify Music Intelligence Platform (MVP)
+# 🎵 Spotify Music Intelligence Platform
 
-A machine-learning powered music recommendation system that uses audio features (danceability, energy, valence, etc.) to help users discover music beyond mainstream charts.
+A sophisticated machine learning-powered application that goes beyond simple metadata to recommend music based on **audio features** (energy, valence, danceability, etc.).
 
 ## 🚀 Features
 
-- **Content-Based Recommendations**: Find songs similar to your favorites based on audio characteristics.
-- **Detailed Audio Analysis**: Understand why a song is recommended (similarity score).
-- **Search Functionality**: Quickly find tracks by name or artist.
-- **Modern UI**: Clean, dark-mode interface built with React.
+### 1. **Mood-Based Discovery** 😃😢⚡
+Don't know what to listen to? Choose a mood, and the AI will find tracks that match that emotional curve.
+- **Happy**: High valence, high energy.
+- **Melancholic**: Low valence, slower tempo.
+- **Energetic**: High tempo, high energy.
+- **Focus**: Low acousticness, consistent rhythm.
 
-## 🛠 Tech Stack
+### 2. **Vibe Builder (Custom Preferences)** 🎛️
+Fine-tune your recommendations with precision. Use the **Vibe Builder** interface to set specific levels for:
+- **Danceability**
+- **Energy**
+- **Acousticness**
+- **Instrumentalness**
+- **Valence (Positivity)**
 
-- **Backend**: Python, FastAPI
-- **Machine Learning**: Scikit-learn (Cosine Similarity), Pandas
-- **Frontend**: React, Vite
-- **Data Source**: [Spotify Tracks Dataset](https://huggingface.co/datasets/achrafgasmi/spotify-tracks-dataset) (Hugging Face)
+### 3. **Genre Classification AI** 🧠
+Curious about a track's genre? 
+- Implements an **XGBoost Classifier** trained on **89,000+ tracks**.
+- Predicts one of **113 genres** based solely on audio features.
+- Provides **Top-3 probabilistic predictions** (e.g., 60% Pop, 30% Dance-Pop).
 
-## 📦 Installation
+### 4. **Smart Search & Exploration** 🔍
+- Real-time search for tracks and artists.
+- Browse by Genre.
+- Get instant "Audio Lookalike" recommendations for any track.
+
+---
+
+## 🛠️ Technology Stack
+
+### Backend
+- **Framework**: FastAPI (Python) - High-performance async API.
+- **Machine Learning**: 
+    - `scikit-learn`: data preprocessing and similarity calculations.
+    - `xgboost`: advanced gradient boosting for genre classification.
+    - `pandas`: efficient data manipulation.
+- **Architecture**: Microservice-ready structure with separate modules for recommendation, classification, and data processing.
+
+### Frontend
+- **Framework**: React (Vite)
+- **Styling**: Modern CSS variables & Dark Mode aesthetics.
+- **State Management**: React Hooks.
+- **HTTP Client**: Axios.
+
+---
+
+## 💻 Installation & Setup
 
 ### Prerequisites
-
 - Python 3.8+
-- Node.js 16+
+- Node.js & npm
 
 ### 1. Clone the Repository
 ```bash
@@ -33,53 +66,33 @@ cd sportify_ML
 ```bash
 # Create virtual environment
 python -m venv venv
-# Windows
-venv\Scripts\activate
-# Linux/Mac
-source venv/bin/activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r backend/requirements.txt hiuggingface_hub
-```
+pip install -r backend/requirements.txt
 
-### 3. Data Setup
-The dataset is not included in the repo. You need to download it:
-```bash
-# This script will download the dataset from Hugging Face
-python backend/data_loader.py
-# Clean the data
-python backend/clean_data.py
+# Run the API
+python backend/main.py
 ```
+*The API will be available at `http://localhost:8000`*
 
-### 4. Frontend Setup
+### 3. Frontend Setup
 ```bash
 cd frontend
 npm install
-```
-
-## 🏃‍♂️ Usage
-
-### Start Backend
-```bash
-# From root directory
-venv\Scripts\activate
-python backend/main.py
-```
-Backend runs at: `http://localhost:8000`
-
-### Start Frontend
-```bash
-# From frontend directory
 npm run dev
 ```
-Frontend runs at: `http://localhost:5173`
+*The app will be available at `http://localhost:5173`*
 
-## 🔮 Future Roadmap
+---
 
-- User authentication and profile saving
-- Playlist generation (Workout, Chill, Party modes)
-- Genre classification visualization
-- Integration with Spotify Web API for playback
+## 📊 Model Performance
+The Genre Classification model uses XGBoost and achieves acceptable performance on a high-cardinality classification task (113 classes).
+- **Algorithm**: XGBoost (Extreme Gradient Boosting)
+- **Features Used**: 12 audio features (danceability, energy, key, loudness, etc.)
+- **Output**: Top-3 confidence scores.
 
-## 📄 License
-MIT
+---
+
+## 📝 License
+This project is open-source and available under the MIT License.
