@@ -1,0 +1,55 @@
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Table, DateTime
+from sqlalchemy.orm import relationship
+from database import Base
+import datetime
+
+# Association table for Playlist <-> Track
+playlist_track = Table('playlist_track', Base.metadata,
+    Column('playlist_id', Integer, ForeignKey('playlists.id')),
+    Column('track_id', String, ForeignKey('tracks.track_id'))
+)
+
+class Track(Base):
+    __tablename__ = "tracks"
+
+    track_id = Column(String, primary_key=True, index=True)
+    track_name = Column(String)
+    artists = Column(String)
+    album_name = Column(String)
+    track_genre = Column(String)
+    popularity = Column(Integer)
+    duration_ms = Column(Integer)
+    explicit = Column(Boolean)
+    danceability = Column(Float)
+    energy = Column(Float)
+    key = Column(Integer)
+    loudness = Column(Float)
+    mode = Column(Integer)
+    speechiness = Column(Float)
+    acousticness = Column(Float)
+    instrumentalness = Column(Float)
+    liveness = Column(Float)
+    valence = Column(Float)
+    tempo = Column(Float)
+    time_signature = Column(Integer)
+
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    is_active = Column(Boolean, default=True)
+    
+    playlists = relationship("Playlist", back_populates="owner")
+
+class Playlist(Base):
+    __tablename__ = "playlists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    owner = relationship("User", back_populates="playlists")
+    tracks = relationship("Track", secondary=playlist_track, backref="playlists")

@@ -122,6 +122,137 @@ def get_genre_tracks(genre_name: str, limit: int = 20):
         "count": len(tracks)
     }
 
+# Database Dependency
+from sqlalchemy.orm import Session
+from database import get_db
+from models import Playlist, Track as TrackModel, playlist_track, User
+from fastapi import Depends, status
+from fastapi.security import OAuth2PasswordRequestForm
+from auth import oauth2_scheme, get_current_user, create_access_token, verify_password, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
+from datetime import timedelta
+from pydantic import BaseModel
+
+# Auth Models
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    is_active: bool
+    class Config:
+        from_attributes = True
+
+@app.post("/api/v1/auth/signup", response_model=UserResponse)
+def signup(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == user.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    hashed_password = get_password_hash(user.password)
+    new_user = User(email=user.email, hashed_password=hashed_password)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+@app.post("/api/v1/auth/login", response_model=Token)
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == form_data.username).first()
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/api/v1/auth/me", response_model=UserResponse)
+def read_users_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+# Playlist Routes (Protected)
+@app.post("/api/v1/playlists/generate")
+def generate_playlist(
+    name: str, 
+    seed_track_id: Optional[str] = None, 
+    mood: Optional[str] = None, 
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # simple logic: get recommendations -> save as playlist
+    recommendations = []
+    
+    if seed_track_id:
+        recommendations = recommender.get_recommendations(seed_track_id, limit)
+    elif mood:
+        recommendations = recommender.get_recommendations_by_mood(mood, limit)
+    else:
+        raise HTTPException(status_code=400, detail="Must provide seed_track_id or mood")
+    
+    if not recommendations:
+        raise HTTPException(status_code=404, detail="No tracks found to generate playlist")
+
+    # Create Playlist for Current User
+    new_playlist = Playlist(name=name, user_id=current_user.id)
+    db.add(new_playlist)
+    db.commit()
+    db.refresh(new_playlist)
+    
+    # Add tracks
+    track_ids = [t['track_id'] for t in recommendations]
+    
+    db_tracks = db.query(TrackModel).filter(TrackModel.track_id.in_(track_ids)).all()
+    
+    for db_track in db_tracks:
+        new_playlist.tracks.append(db_track)
+        
+    db.commit()
+    
+    return {
+        "playlist_id": new_playlist.id,
+        "name": new_playlist.name,
+        "track_count": len(db_tracks),
+        "tracks": recommendations 
+    }
+
+@app.get("/api/v1/playlists")
+def get_playlists(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Only return playlists for the current user
+    playlists = db.query(Playlist).filter(Playlist.user_id == current_user.id).all()
+    return [{ "id": p.id, "name": p.name, "created_at": p.created_at, "track_count": len(p.tracks) } for p in playlists]
+
+@app.get("/api/v1/playlists/{playlist_id}")
+def get_playlist(playlist_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    playlist = db.query(Playlist).filter(Playlist.id == playlist_id, Playlist.user_id == current_user.id).first()
+    if not playlist:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    
+    return {
+        "id": playlist.id,
+        "name": playlist.name,
+        "created_at": playlist.created_at,
+        "tracks": [
+            {
+                "track_id": t.track_id,
+                "track_name": t.track_name,
+                "artists": t.artists,
+                "album_name": t.album_name,
+            } 
+            for t in playlist.tracks
+        ]
+    }
+
 from classifier import GenreClassifier
 classifier = GenreClassifier()
 

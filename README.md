@@ -13,82 +13,58 @@ Don't know what to listen to? Choose a mood, and the AI will find tracks that ma
 
 ### 2. **Vibe Builder (Custom Preferences)** 🎛️
 Fine-tune your recommendations with precision. Use the **Vibe Builder** interface to set specific levels for:
-- **Danceability**
-- **Energy**
-- **Acousticness**
-- **Instrumentalness**
-- **Valence (Positivity)**
+- **Danceability**, **Energy**, **Acousticness**, **Instrumentalness**, and **Valence**.
 
 ### 3. **Genre Classification AI** 🧠
-Curious about a track's genre? 
-- Implements an **XGBoost Classifier** trained on **89,000+ tracks**.
+- Implements an **XGBoost Classifier** trained on **114,000+ tracks**.
 - Predicts one of **113 genres** based solely on audio features.
-- Provides **Top-3 probabilistic predictions** (e.g., 60% Pop, 30% Dance-Pop).
+- Provides probabilistic predictions.
 
-### 4. **Smart Search & Exploration** 🔍
-- Real-time search for tracks and artists.
-- Browse by Genre.
-- Get instant "Audio Lookalike" recommendations for any track.
+### 4. **User Accounts & Personalization** 🔐
+- **Secure Auth**: JWT-based authentication for private user sessions.
+- **Personal Playlists**: Generate and save recommendations to your own account.
+- **Persistent Storage**: All your musical discoveries are saved in a dedicated SQLite database.
 
 ---
 
 ## 🛠️ Technology Stack
 
 ### Backend
-- **Framework**: FastAPI (Python) - High-performance async API.
-- **Machine Learning**: 
-    - `scikit-learn`: data preprocessing and similarity calculations.
-    - `xgboost`: advanced gradient boosting for genre classification.
-    - `pandas`: efficient data manipulation.
-- **Architecture**: Microservice-ready structure with separate modules for recommendation, classification, and data processing.
+- **Framework**: FastAPI (Python 3.13)
+- **Security**: JWT Authentication, Password Hashing (bcrypt).
+- **Database**: SQLite (SQLAlchemy ORM).
+- **Machine Learning**: `scikit-learn`, `xgboost`, `pandas`.
 
 ### Frontend
-- **Framework**: React (Vite)
-- **Styling**: Modern CSS variables & Dark Mode aesthetics.
-- **State Management**: React Hooks.
-- **HTTP Client**: Axios.
+- **Framework**: React 19 (Vite)
+- **Design**: Modern Glassmorphism & Dark Mode UI.
+- **State**: React Hooks.
+- **Communication**: Axios.
 
 ---
 
 ## 💻 Installation & Setup
 
-### Prerequisites
-- Python 3.8+
-- Node.js & npm
-
-### 1. Clone the Repository
+### 1. Backend Setup
 ```bash
-git clone https://github.com/https-github-com-achrafgasmi58/sportify_ML.git
-cd sportify_ML
-```
-
-### 2. Backend Setup
-```bash
-# Create virtual environment
+cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Windows
+venv\Scripts\activate
+# Linux/Mac
+source venv/bin/activate
 
-# Install dependencies
-pip install -r backend/requirements.txt
-
-# Run the API
-python backend/main.py
+pip install -r requirements.txt
+python main.py
 ```
-*The API will be available at `http://localhost:8000`*
 
-### 3. Frontend Setup
+### 2. Frontend Setup
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Frontend runs at: `http://localhost:5173`
 
-## 🔮 Future Roadmap
+---
 
-- User authentication and profile saving
-- Playlist generation (Workout, Chill, Party modes)
-- Genre classification visualization
-- Integration with Spotify Web API for playback
-
-
+*Developed by Achraf Gasmi*
