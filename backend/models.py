@@ -43,6 +43,7 @@ class User(Base):
     
     playlists = relationship("Playlist", back_populates="owner")
     preference_profiles = relationship("PreferenceProfile", back_populates="owner")
+    listening_history = relationship("ListeningHistory", back_populates="owner")
 
 class Playlist(Base):
     __tablename__ = "playlists"
@@ -75,6 +76,23 @@ class PreferenceProfile(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     
     owner = relationship("User", back_populates="preference_profiles")
+
+class ListeningHistory(Base):
+    __tablename__ = "listening_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    track_id = Column(String, ForeignKey("tracks.track_id"))
+    played_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # Interaction details
+    interaction_type = Column(String, default="play") # play, skip, like
+    
+    owner = relationship("User", back_populates="listening_history")
+    track = relationship("Track")
+
+# Update User model to include listening_history
+# (Already updated in User class below)
 
 # Update User model to include preference_profiles
 # (Already defined in User class during initial research, let's verify)

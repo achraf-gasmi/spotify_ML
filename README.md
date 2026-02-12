@@ -29,9 +29,21 @@ Fine-tune your recommendations with precision and save your favorite settings:
 - Implements an **XGBoost Classifier** trained on **89,000+ tracks** (125 genres).
 - Predicts genres based solely on audio features with confidence scores.
 
-### 5. **User Accounts & Security** 🔐
+### 5. **Personal Listening Analytics** 📊🎧
+Discover your musical DNA with detailed insights into your listening habits:
+- **Audio DNA**: Visualizes your average audio features (energy, danceability, etc.) across all track plays.
+- **Genre Distribution**: See your top genres at a glance.
+- **Interactive History**: Tracks every session and provides real-time updates to your dashboard.
+
+### 6. **BPM-Phased Workout Generator** 🏃‍♂️🔥
+Generate playlists that match the physical intensity of your workouts:
+- **Intensity Arc**: Sequenced from **Warm-up** (low-mid BPM) to **Peak** (high energy) and **Cool-down**.
+- **Custom Duration**: Set your target time from 15 to 90 minutes.
+- **Phase Visuals**: Tracks are color-coded by workout phase for easy navigation.
+
+### 7. **User Accounts & Security** 🔐
 - **Auth**: JWT-based authentication for secure personal sessions.
-- **Persistence**: All playlists, tracks, and preference profiles are saved to a SQLAlchemy-managed database.
+- **Persistence**: All playlists, history, tracks, and preference profiles are saved to a SQLAlchemy-managed database.
 
 ---
 

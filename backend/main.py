@@ -226,6 +226,39 @@ def generate_playlist(
         "tracks": recommendations 
     }
 
+class CustomPlaylistRequest(BaseModel):
+    name: str
+    track_ids: List[str]
+
+@app.post("/api/v1/playlists/custom")
+def create_custom_playlist(
+    req: CustomPlaylistRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not req.track_ids:
+        raise HTTPException(status_code=400, detail="Must provide at least one track ID")
+        
+    new_playlist = Playlist(name=req.name, user_id=current_user.id)
+    db.add(new_playlist)
+    db.commit()
+    db.refresh(new_playlist)
+    
+    db_tracks = db.query(TrackModel).filter(TrackModel.track_id.in_(req.track_ids)).all()
+    
+    # Maintain order from track_ids if possible (SQLAlchemy won't automatically)
+    # For now, just add them.
+    for db_track in db_tracks:
+        new_playlist.tracks.append(db_track)
+        
+    db.commit()
+    
+    return {
+        "playlist_id": new_playlist.id,
+        "name": new_playlist.name,
+        "track_count": len(db_tracks)
+    }
+
 @app.get("/api/v1/playlists")
 def get_playlists(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Only return playlists for the current user
@@ -327,6 +360,93 @@ def delete_preference_profile(
     db.delete(profile)
     db.commit()
     return {"message": "Profile deleted"}
+
+# Analytics and History Routes
+from models import ListeningHistory, Track as TrackModel
+from sqlalchemy import func
+
+@app.post("/api/v1/history")
+def record_listening_history(
+    track_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Verify track exists
+    track = db.query(TrackModel).filter(TrackModel.track_id == track_id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+        
+    history_entry = ListeningHistory(
+        user_id=current_user.id,
+        track_id=track_id
+    )
+    db.add(history_entry)
+    db.commit()
+    return {"message": "Listening event recorded"}
+
+@app.get("/api/v1/analytics/summary")
+def get_analytics_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Basic summary stats
+    history_count = db.query(ListeningHistory).filter(ListeningHistory.user_id == current_user.id).count()
+    
+    if history_count == 0:
+        return {
+            "total_plays": 0,
+            "top_genres": [],
+            "average_features": {}
+        }
+        
+    # Get all tracks played by user to calculate averages
+    # Join with Track to get features
+    history_tracks = db.query(TrackModel).join(
+        ListeningHistory, TrackModel.track_id == ListeningHistory.track_id
+    ).filter(ListeningHistory.user_id == current_user.id).all()
+    
+    # Calculate average features
+    features = ['danceability', 'energy', 'valence', 'acousticness', 'instrumentalness', 'speechiness', 'tempo']
+    averages = {}
+    for f in features:
+        averages[f] = sum(getattr(t, f) for t in history_tracks) / len(history_tracks)
+        
+    # Top Genres (simple count)
+    genre_counts = {}
+    for t in history_tracks:
+        genre = t.track_genre
+        if genre:
+            genre_counts[genre] = genre_counts.get(genre, 0) + 1
+            
+    top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    return {
+        "total_plays": history_count,
+        "top_genres": [{"genre": g, "count": c} for g, c in top_genres],
+        "average_features": averages
+    }
+
+class WorkoutPlaylistRequest(BaseModel):
+    duration_minutes: int = 30
+    intensity: str = "medium" # low, medium, high
+
+@app.post("/api/v1/playlists/workout")
+def generate_workout_playlist(
+    req: WorkoutPlaylistRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    tracks = recommender.get_workout_playlist(req.duration_minutes, req.intensity)
+    
+    if not tracks:
+        raise HTTPException(status_code=404, detail="Could not find suitable tracks for your workout criteria.")
+        
+    return {
+        "name": f"My {req.intensity.capitalize()} workout",
+        "duration_requested": req.duration_minutes,
+        "total_tracks": len(tracks),
+        "tracks": tracks
+    }
 
 from classifier import GenreClassifier
 classifier = GenreClassifier()

@@ -204,3 +204,58 @@ class Recommender:
         if row.empty:
             return None
         return row.iloc[0].to_dict()
+
+    def get_workout_playlist(self, duration_minutes: int = 30, target_intensity: str = 'medium'):
+        """
+        Generates a sequenced workout playlist with BPM phasing.
+        Phases: Warm-up (20%), Peak (60%), Cool-down (20%)
+        """
+        # Average track duration ~3.5 minutes
+        total_tracks = max(int(duration_minutes / 3.5), 5)
+        
+        warmup_count = max(int(total_tracks * 0.2), 1)
+        peak_count = max(int(total_tracks * 0.6), 3)
+        cooldown_count = max(total_tracks - warmup_count - peak_count, 1)
+        
+        # Phase definitions
+        phases = [
+            # Warm-up: Moderate BPM, Moderate Energy
+            {'count': warmup_count, 'bpm_range': (100, 125), 'energy_min': 0.4, 'energy_max': 0.7},
+            # Peak: High BPM, High Energy
+            {'count': peak_count, 'bpm_range': (130, 180), 'energy_min': 0.7, 'energy_max': 1.0},
+            # Cool-down: Low BPM, Low Energy
+            {'count': cooldown_count, 'bpm_range': (80, 105), 'energy_min': 0.2, 'energy_max': 0.5}
+        ]
+        
+        if target_intensity == 'high':
+            # Boost peak intensity
+            phases[1]['energy_min'] = 0.8
+            phases[1]['bpm_range'] = (140, 190)
+        elif target_intensity == 'low':
+            # Lower intensity across the board
+            phases[1]['energy_min'] = 0.6
+            phases[1]['bpm_range'] = (120, 150)
+            
+        workout_tracks = []
+        
+        for phase in phases:
+            filtered_df = self.df[
+                (self.df['tempo'] >= phase['bpm_range'][0]) & 
+                (self.df['tempo'] <= phase['bpm_range'][1]) &
+                (self.df['energy'] >= phase['energy_min']) &
+                (self.df['energy'] <= phase['energy_max'])
+            ]
+            
+            if filtered_df.empty:
+                # Fallback: Relax energy constraints if no exact matches
+                filtered_df = self.df[
+                    (self.df['tempo'] >= phase['bpm_range'][0] - 10) & 
+                    (self.df['tempo'] <= phase['bpm_range'][1] + 10)
+                ]
+            
+            sample_size = min(len(filtered_df), phase['count'])
+            if not filtered_df.empty:
+                phase_tracks = filtered_df.sample(n=sample_size).to_dict('records')
+                workout_tracks.extend(phase_tracks)
+                
+        return workout_tracks

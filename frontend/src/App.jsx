@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Search, Music, BarChart2, Disc, Smile, Sliders } from 'lucide-react'
+import { Search, Music, BarChart2, Disc, Smile, Sliders, Play, History, TrendingUp, Dumbbell } from 'lucide-react'
 import './App.css'
 
 function App() {
-  const [activeTab, setActiveTab] = useState('search') // search, mood, vibe, genres
+  const [activeTab, setActiveTab] = useState('search') // search, mood, vibe, genres, analytics
 
   // Search State
   const [query, setQuery] = useState('')
@@ -16,6 +16,9 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [headerTitle, setHeaderTitle] = useState('Spotify Music Intelligence')
+
+  // Analytics State
+  const [analytics, setAnalytics] = useState(null)
 
   // Mood State
   const [selectedMood, setSelectedMood] = useState(null)
@@ -48,6 +51,11 @@ function App() {
   // Preference Profile State
   const [savedProfiles, setSavedProfiles] = useState([])
   const [profileName, setProfileName] = useState('')
+
+  // Workout State
+  const [workoutDuration, setWorkoutDuration] = useState(30)
+  const [workoutIntensity, setWorkoutIntensity] = useState('medium')
+  const [workoutResult, setWorkoutResult] = useState(null)
 
   useEffect(() => {
     if (token) {
@@ -124,6 +132,26 @@ function App() {
     })
   }
 
+  const fetchAnalytics = async () => {
+    try {
+      const response = await axios.get('/api/v1/analytics/summary', getAuthHeaders())
+      setAnalytics(response.data)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handlePlayTrack = async (track) => {
+    try {
+      // Simulate play event
+      console.log(`Playing: ${track.track_name}`)
+      await axios.post(`/api/v1/history?track_id=${track.track_id}`, null, getAuthHeaders())
+      if (activeTab === 'analytics') fetchAnalytics()
+    } catch (err) {
+      console.error('Failed to record history:', err)
+    }
+  }
+
   const handleAddToPlaylist = async (playlistId) => {
     try {
       setLoading(true)
@@ -135,6 +163,24 @@ function App() {
     } catch (err) {
       console.error(err)
       setError('Failed to add track to playlist')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const generateWorkout = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await axios.post('/api/v1/playlists/workout', {
+        duration_minutes: workoutDuration,
+        intensity: workoutIntensity
+      }, getAuthHeaders())
+      setWorkoutResult(response.data)
+      setRecommendations(response.data.tracks)
+    } catch (err) {
+      console.error(err)
+      setError('Failed to generate workout playlist')
     } finally {
       setLoading(false)
     }
@@ -239,23 +285,29 @@ function App() {
     }
     try {
       setLoading(true)
-      let payload = { name: playlistName, limit: 20 }
 
-      if (selectedMood) {
-        payload.mood = selectedMood
-      } else if (selectedTrack) {
-        payload.seed_track_id = selectedTrack.track_id
+      // If we have recommendations but no mood/track selected (e.g. Workout), 
+      // use the new custom playlist endpoint
+      if (activeTab === 'workout' || !selectedMood && !selectedTrack) {
+        const trackIds = recommendations.map(t => t.track_id)
+        await axios.post('/api/v1/playlists/custom', {
+          name: playlistName,
+          track_ids: trackIds
+        }, getAuthHeaders())
       } else {
-        alert("Cannot save empty or custom vibe playlist yet (API limitation). Select a Mood or Track first.")
-        setLoading(false)
-        return
+        let payload = { name: playlistName, limit: 20 }
+        if (selectedMood) {
+          payload.mood = selectedMood
+        } else if (selectedTrack) {
+          payload.seed_track_id = selectedTrack.track_id
+        }
+        await axios.post('/api/v1/playlists/generate', null, {
+          params: payload,
+          ...getAuthHeaders()
+        })
       }
 
-      const response = await axios.post('/api/v1/playlists/generate', null, {
-        params: payload,
-        ...getAuthHeaders()
-      })
-      alert(`Playlist "${response.data.name}" created with ${response.data.track_count} tracks!`)
+      alert(`Playlist "${playlistName}" created!`)
       setPlaylistName('')
       fetchPlaylists()
     } catch (err) {
@@ -394,6 +446,22 @@ function App() {
     setActiveTab(tab)
     resetSelection()
     setPrediction(null)
+    if (tab === 'playlists') fetchPlaylists()
+    if (tab === 'genres') fetchGenres()
+    if (tab === 'analytics') fetchAnalytics()
+
+    // Update header title based on tab
+    const titles = {
+      search: 'Spotify Music Intelligence',
+      mood: 'Mood-Based Discovery',
+      vibe: 'Vibe Builder',
+      genres: 'Genre Explorer',
+      playlists: 'Your Collections',
+      classify: 'AI Genre Classifier',
+      analytics: 'Listening Analytics',
+      workout: 'Workout Generator'
+    }
+    setHeaderTitle(titles[tab] || 'Spotify Music Intelligence')
   }
 
   return (
@@ -469,6 +537,12 @@ function App() {
               </button>
               <button className={`btn ${activeTab === 'classify' ? '' : 'outline'}`} onClick={() => handleTabChange('classify')}>
                 <BarChart2 size={16} /> Classify
+              </button>
+              <button className={`btn ${activeTab === 'analytics' ? '' : 'outline'}`} onClick={() => handleTabChange('analytics')}>
+                <TrendingUp size={16} /> Analytics
+              </button>
+              <button className={`btn ${activeTab === 'workout' ? '' : 'outline'}`} onClick={() => handleTabChange('workout')}>
+                <Dumbbell size={16} /> Workout
               </button>
             </div>
           </div>
@@ -557,7 +631,17 @@ function App() {
                             <div className="flex-row">
                               <button
                                 className="btn outline"
-                                style={{ padding: '5px', borderRadius: '50%' }}
+                                style={{ padding: '8px', borderRadius: '50%', color: 'var(--accent-primary)', borderColor: 'rgba(29, 215, 96, 0.2)' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePlayTrack(track);
+                                }}
+                              >
+                                <Play size={14} fill="currentColor" />
+                              </button>
+                              <button
+                                className="btn outline"
+                                style={{ padding: '8px', borderRadius: '50%' }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setTrackToAddToPlaylist(track);
@@ -566,7 +650,6 @@ function App() {
                               >
                                 <Music size={14} />
                               </button>
-                              <Music size={16} color="var(--text-dim)" />
                             </div>
                           </div>
                         ))}
@@ -585,12 +668,22 @@ function App() {
                               <span className="track-artist">{track.artists}</span>
                             </div>
                             <div className="flex-row">
-                              <div className="similarity-score" style={{ color: 'var(--accent-primary)', fontSize: '0.8rem', fontWeight: '600' }}>
+                              <div className="similarity-score" style={{ color: 'var(--accent-primary)', fontSize: '0.8rem', fontWeight: '600', marginRight: '1rem' }}>
                                 {(track.similarity_score * 100).toFixed(0)}% Match
                               </div>
                               <button
                                 className="btn outline"
-                                style={{ padding: '5px', borderRadius: '50%' }}
+                                style={{ padding: '8px', borderRadius: '50%', color: 'var(--accent-primary)', borderColor: 'rgba(29, 215, 96, 0.2)' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePlayTrack(track);
+                                }}
+                              >
+                                <Play size={14} fill="currentColor" />
+                              </button>
+                              <button
+                                className="btn outline"
+                                style={{ padding: '8px', borderRadius: '50%' }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setTrackToAddToPlaylist(track);
@@ -655,17 +748,29 @@ function App() {
                             <span className="track-title">{track.track_name}</span>
                             <span className="track-artist">{track.artists}</span>
                           </div>
-                          <button
-                            className="btn outline"
-                            style={{ padding: '8px', borderRadius: '50%' }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setTrackToAddToPlaylist(track);
-                              setShowPlaylistSelector(true);
-                            }}
-                          >
-                            <Music size={18} />
-                          </button>
+                          <div className="flex-row">
+                            <button
+                              className="btn outline"
+                              style={{ padding: '8px', borderRadius: '50%', color: 'var(--accent-primary)', borderColor: 'rgba(29, 215, 96, 0.2)' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePlayTrack(track);
+                              }}
+                            >
+                              <Play size={14} fill="currentColor" />
+                            </button>
+                            <button
+                              className="btn outline"
+                              style={{ padding: '8px', borderRadius: '50%' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTrackToAddToPlaylist(track);
+                                setShowPlaylistSelector(true);
+                              }}
+                            >
+                              <Music size={14} />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -759,6 +864,16 @@ function App() {
                             </div>
                             <button
                               className="btn outline"
+                              style={{ padding: '8px', borderRadius: '50%', color: 'var(--accent-primary)', borderColor: 'rgba(29, 215, 96, 0.2)' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePlayTrack(track);
+                              }}
+                            >
+                              <Play size={14} fill="currentColor" />
+                            </button>
+                            <button
+                              className="btn outline"
                               style={{ padding: '8px', borderRadius: '50%' }}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -766,7 +881,7 @@ function App() {
                                 setShowPlaylistSelector(true);
                               }}
                             >
-                              <Music size={18} />
+                              <Music size={14} />
                             </button>
                           </div>
                         </div>
@@ -812,6 +927,18 @@ function App() {
                             <span className="track-title">{track.track_name}</span>
                             <span className="track-artist">{track.artists}</span>
                           </div>
+                          <div className="flex-row">
+                            <button
+                              className="btn outline"
+                              style={{ padding: '8px', borderRadius: '50%', color: 'var(--accent-primary)', borderColor: 'rgba(29, 215, 96, 0.2)' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePlayTrack(track);
+                              }}
+                            >
+                              <Play size={14} fill="currentColor" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -856,12 +983,203 @@ function App() {
                             <span className="track-title">{track.track_name}</span>
                             <span className="track-artist">{track.artists}</span>
                           </div>
+                          <div className="flex-row">
+                            <button
+                              className="btn outline"
+                              style={{ padding: '8px', borderRadius: '50%', color: 'var(--accent-primary)', borderColor: 'rgba(29, 215, 96, 0.2)' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePlayTrack(track);
+                              }}
+                            >
+                              <Play size={14} fill="currentColor" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
               </>
+            )}
+
+            {/* ANALYTICS TAB */}
+            {activeTab === 'analytics' && (
+              <div className="analytics-dashboard fade-in">
+                <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                  <div className="card stat-card" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+                    <History size={48} color="var(--accent-primary)" style={{ marginBottom: '1rem' }} />
+                    <h2 style={{ fontSize: '3.5rem', margin: '0', color: 'var(--text-main)' }}>{analytics?.total_plays || 0}</h2>
+                    <p style={{ color: 'var(--text-dim)', margin: '0', fontSize: '1.1rem' }}>Total Tracks Played</p>
+                  </div>
+
+                  <div className="card stat-card" style={{ padding: '2rem' }}>
+                    <div className="flex-row" style={{ marginBottom: '1.5rem', gap: '1rem' }}>
+                      <TrendingUp size={32} color="var(--accent-primary)" />
+                      <h3 style={{ margin: 0, fontSize: '1.5rem' }}>Top Genres</h3>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      {analytics?.top_genres.map((g, i) => (
+                        <div key={i} className="flex-row" style={{ justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+                          <span style={{ textTransform: 'capitalize', fontWeight: '500' }}>{g.genre}</span>
+                          <span className="badge" style={{ background: 'var(--accent-glow)', color: 'var(--accent-primary)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem' }}>{g.count} plays</span>
+                        </div>
+                      ))}
+                      {(!analytics || analytics.top_genres.length === 0) && (
+                        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-dim)' }}>
+                          <p>Start listening to see your stats!</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {analytics && analytics.total_plays > 0 && (
+                  <div className="card" style={{ padding: '2.5rem' }}>
+                    <div className="flex-row" style={{ marginBottom: '2rem', gap: '1rem' }}>
+                      <BarChart2 size={32} color="var(--accent-primary)" />
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.5rem' }}>Your Audio Profile</h3>
+                        <p style={{ color: 'var(--text-dim)', margin: 0 }}>Discover the DNA of your music taste</p>
+                      </div>
+                    </div>
+                    <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2.5rem' }}>
+                      {Object.entries(analytics.average_features).map(([feature, value]) => (
+                        <div key={feature} className="feature-bar-container">
+                          <div className="flex-row" style={{ justifyContent: 'space-between', marginBottom: '12px' }}>
+                            <label style={{ textTransform: 'capitalize', fontSize: '1rem', fontWeight: '500' }}>{feature}</label>
+                            <span style={{ fontWeight: '700', color: 'var(--accent-primary)' }}>
+                              {feature === 'tempo' ? value.toFixed(0) : (value * 100).toFixed(0) + '%'}
+                            </span>
+                          </div>
+                          <div style={{ height: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden' }}>
+                            <div style={{
+                              height: '100%',
+                              width: feature === 'tempo' ? `${(value / 200) * 100}%` : `${value * 100}%`,
+                              background: 'linear-gradient(90deg, var(--accent-primary), var(--accent-secondary))',
+                              boxShadow: '0 0 15px var(--accent-glow)',
+                              borderRadius: '6px',
+                              transition: 'width 1s ease-out'
+                            }}></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* WORKOUT TAB */}
+            {activeTab === 'workout' && (
+              <div className="workout-container fade-in">
+                {!workoutResult ? (
+                  <div className="card" style={{ maxWidth: '600px', margin: '0 auto', padding: '3rem', textAlign: 'center' }}>
+                    <div style={{ marginBottom: '2rem' }}>
+                      <div className="flex-row" style={{ justifyContent: 'center', marginBottom: '1.5rem' }}>
+                        <div style={{ padding: '1.5rem', background: 'var(--accent-glow)', borderRadius: '50%', color: 'var(--accent-primary)' }}>
+                          <Dumbbell size={48} />
+                        </div>
+                      </div>
+                      <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>BPM-Phased Generator</h2>
+                      <p style={{ color: 'var(--text-dim)' }}>Create a playlist that follows your workout intensity arc: Warm-up → Peak → Cool-down.</p>
+                    </div>
+
+                    <div style={{ textAlign: 'left', marginBottom: '2.5rem' }}>
+                      <div className="slider-container" style={{ marginBottom: '2rem' }}>
+                        <div className="flex-row" style={{ justifyContent: 'space-between', marginBottom: '1rem' }}>
+                          <label style={{ fontWeight: '600' }}>Duration (minutes)</label>
+                          <span style={{ color: 'var(--accent-primary)', fontWeight: 'bold', fontSize: '1.2rem' }}>{workoutDuration} min</span>
+                        </div>
+                        <input
+                          type="range" min="15" max="90" step="5"
+                          value={workoutDuration}
+                          onChange={(e) => setWorkoutDuration(parseInt(e.target.value))}
+                          style={{ width: '100%', height: '8px' }}
+                        />
+                      </div>
+
+                      <div className="intensity-selector">
+                        <label style={{ fontWeight: '600', display: 'block', marginBottom: '1rem' }}>Target Intensity</label>
+                        <div className="flex-row" style={{ gap: '1rem' }}>
+                          {['low', 'medium', 'high'].map(intensity => (
+                            <button
+                              key={intensity}
+                              className={`btn ${workoutIntensity === intensity ? '' : 'outline'}`}
+                              onClick={() => setWorkoutIntensity(intensity)}
+                              style={{ flex: 1, textTransform: 'capitalize' }}
+                            >
+                              {intensity}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button className="btn" onClick={generateWorkout} style={{ width: '100%', padding: '1.2rem', fontSize: '1.1rem' }}>
+                      Generate My Workout Mix
+                    </button>
+                  </div>
+                ) : (
+                  <div className="workout-results">
+                    <div className="card flex-row" style={{ justifyContent: 'space-between', marginBottom: '2rem' }}>
+                      <div>
+                        <h2 style={{ margin: 0 }}>{workoutResult.name}</h2>
+                        <p style={{ color: 'var(--text-dim)', margin: 0 }}>{workoutResult.total_tracks} tracks • {workoutResult.duration_requested} minutes target</p>
+                      </div>
+                      <button className="btn outline" onClick={() => setWorkoutResult(null)}>Edit Criteria</button>
+                    </div>
+
+                    <div className="recommendations-section">
+                      <div className="track-list grid-view" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                        {recommendations.map((track, index) => {
+                          // Determine phase based on index
+                          const warmupEnd = Math.max(1, Math.floor(recommendations.length * 0.2));
+                          const peakEnd = Math.max(warmupEnd + 1, Math.floor(recommendations.length * 0.8));
+                          let phaseLabel = "Peak";
+                          let phaseColor = "var(--accent-primary)";
+
+                          if (index < warmupEnd) {
+                            phaseLabel = "Warm-up";
+                            phaseColor = "#ecd06f"; // Gold/Yellow
+                          } else if (index >= peakEnd) {
+                            phaseLabel = "Cool-down";
+                            phaseColor = "#6fbced"; // Blue
+                          }
+
+                          return (
+                            <div key={`${track.track_id}-${index}`} className="card track-item" style={{ borderLeft: `4px solid ${phaseColor}` }}>
+                              <div className="badge" style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '0.7rem', background: 'rgba(255,255,255,0.05)', color: phaseColor }}>
+                                {phaseLabel}
+                              </div>
+                              <div className="track-info">
+                                <span className="track-title">{track.track_name}</span>
+                                <span className="track-artist">{track.artists}</span>
+                                <div className="flex-row" style={{ marginTop: '0.5rem', gap: '1rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                                  <span>BPM: {Math.round(track.tempo)}</span>
+                                  <span>Energy: {Math.round(track.energy * 100)}%</span>
+                                </div>
+                              </div>
+                              <div className="flex-row">
+                                <button
+                                  className="btn outline"
+                                  style={{ padding: '8px', borderRadius: '50%', color: 'var(--accent-primary)', borderColor: 'rgba(29, 215, 96, 0.2)' }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePlayTrack(track);
+                                  }}
+                                >
+                                  <Play size={14} fill="currentColor" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* CLASSIFY TAB */}
@@ -880,7 +1198,7 @@ function App() {
                           type="range" min="0" max="1" step="0.1"
                           value={vibe[feature]}
                           onChange={(e) => setVibe({ ...vibe, [feature]: parseFloat(e.target.value) })}
-                          style={{ width: '100%', accentColor: 'var(--accent)' }}
+                          style={{ width: '100%', accentColor: 'var(--accent-primary)' }}
                         />
                       </div>
                     ))}
@@ -894,16 +1212,16 @@ function App() {
                   {prediction ? (
                     <>
                       <h3>Predicted Genre</h3>
-                      <div style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--accent)', margin: '1rem 0' }}>
+                      <div style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--accent-primary)', margin: '1rem 0' }}>
                         {prediction.top_prediction.genre}
                       </div>
-                      <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                      <div style={{ color: 'var(--text-dim)', marginBottom: '1rem' }}>
                         Confidence: {(prediction.top_prediction.confidence * 100).toFixed(1)}%
                       </div>
 
                       {prediction.all_predictions.length > 1 && (
-                        <div style={{ width: '100%', marginTop: '1rem', borderTop: '1px solid var(--border)' }}>
-                          <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Alternative matches:</p>
+                        <div style={{ width: '100%', marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                          <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'var(--text-dim)' }}>Alternative matches:</p>
                           <div className="flex-row" style={{ justifyContent: 'center', gap: '1rem' }}>
                             {prediction.all_predictions.slice(1).map((pred, idx) => (
                               <div key={idx} className="badge">
@@ -915,19 +1233,17 @@ function App() {
                       )}
                     </>
                   ) : (
-                    <div style={{ color: 'var(--text-secondary)' }}>
+                    <div style={{ color: 'var(--text-dim)' }}>
                       <p>Adjust features and click Predict to see the AI's genre classification.</p>
                     </div>
                   )}
                 </div>
               </div>
             )}
-
           </div>
         </>
       )}
     </div>
   )
 }
-
 export default App
