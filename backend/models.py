@@ -42,6 +42,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     
     playlists = relationship("Playlist", back_populates="owner")
+    preference_profiles = relationship("PreferenceProfile", back_populates="owner")
 
 class Playlist(Base):
     __tablename__ = "playlists"
@@ -53,3 +54,28 @@ class Playlist(Base):
     
     owner = relationship("User", back_populates="playlists")
     tracks = relationship("Track", secondary=playlist_track, backref="playlists")
+
+class PreferenceProfile(Base):
+    __tablename__ = "preference_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    description = Column(String, nullable=True)
+    
+    # Audio features
+    danceability = Column(Float, default=0.5)
+    energy = Column(Float, default=0.5)
+    valence = Column(Float, default=0.5)
+    acousticness = Column(Float, default=0.5)
+    instrumentalness = Column(Float, default=0.5)
+    speechiness = Column(Float, default=0.5)
+    liveness = Column(Float, default=0.5)
+    
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    owner = relationship("User", back_populates="preference_profiles")
+
+# Update User model to include preference_profiles
+# (Already defined in User class during initial research, let's verify)
+

@@ -41,9 +41,18 @@ function App() {
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
 
+  // Add to Playlist State
+  const [showPlaylistSelector, setShowPlaylistSelector] = useState(false)
+  const [trackToAddToPlaylist, setTrackToAddToPlaylist] = useState(null)
+
+  // Preference Profile State
+  const [savedProfiles, setSavedProfiles] = useState([])
+  const [profileName, setProfileName] = useState('')
+
   useEffect(() => {
     if (token) {
       fetchUser()
+      fetchPreferences()
     }
   }, [token])
 
@@ -56,6 +65,78 @@ function App() {
     } catch (err) {
       console.error(err)
       logout()
+    }
+  }
+
+  const fetchPreferences = async () => {
+    try {
+      const response = await axios.get('/api/v1/preferences', getAuthHeaders())
+      setSavedProfiles(response.data)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    if (!profileName) {
+      alert("Please enter a profile name")
+      return
+    }
+    try {
+      setLoading(true)
+      const payload = {
+        name: profileName,
+        ...vibe
+      }
+      await axios.post('/api/v1/preferences', payload, getAuthHeaders())
+      alert(`Profile "${profileName}" saved!`)
+      setProfileName('')
+      fetchPreferences()
+    } catch (err) {
+      console.error(err)
+      setError('Failed to save preference profile')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteProfile = async (profileId) => {
+    if (!window.confirm("Delete this profile?")) return
+    try {
+      setLoading(true)
+      await axios.delete(`/api/v1/preferences/${profileId}`, getAuthHeaders())
+      fetchPreferences()
+    } catch (err) {
+      console.error(err)
+      setError('Failed to delete profile')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const applyProfile = (profile) => {
+    setVibe({
+      danceability: profile.danceability,
+      energy: profile.energy,
+      valence: profile.valence,
+      acousticness: profile.acousticness,
+      instrumentalness: profile.instrumentalness
+    })
+  }
+
+  const handleAddToPlaylist = async (playlistId) => {
+    try {
+      setLoading(true)
+      await axios.post(`/api/v1/playlists/${playlistId}/tracks?track_id=${trackToAddToPlaylist.track_id}`, null, getAuthHeaders())
+      alert(`Track added to playlist!`)
+      setShowPlaylistSelector(false)
+      setTrackToAddToPlaylist(null)
+      if (activeTab === 'playlists') fetchPlaylists()
+    } catch (err) {
+      console.error(err)
+      setError('Failed to add track to playlist')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -108,10 +189,10 @@ function App() {
     if (activeTab === 'genres' && genres.length === 0) {
       fetchGenres()
     }
-    if (activeTab === 'playlists' && token) {
+    if ((activeTab === 'playlists' || showPlaylistSelector) && token && playlists.length === 0) {
       fetchPlaylists()
     }
-  }, [activeTab, token])
+  }, [activeTab, token, showPlaylistSelector])
 
   const fetchGenres = async () => {
     try {
@@ -176,7 +257,7 @@ function App() {
       })
       alert(`Playlist "${response.data.name}" created with ${response.data.track_count} tracks!`)
       setPlaylistName('')
-      if (activeTab === 'playlists') fetchPlaylists()
+      fetchPlaylists()
     } catch (err) {
       console.error(err)
       setError('Failed to create playlist')
@@ -250,7 +331,7 @@ function App() {
     setRecommendations([])
 
     try {
-      const response = await axios.get(`/api/v1/recommendations/mood/${mood}?limit=10`)
+      const response = await axios.get(`/api/v1/recommendations/mood/${mood.toLowerCase()}?limit=10`)
       setRecommendations(response.data.recommendations)
     } catch (err) {
       console.error(err)
@@ -317,17 +398,20 @@ function App() {
 
   return (
     <div className="container">
-      <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1>{headerTitle}</h1>
-          <p>Discover music based on audio features</p>
+      <header className="header">
+        <div className="header-content">
+          <Music color="var(--accent-primary)" size={32} />
+          {user && (
+            <div className="flex-row">
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-dim)' }}>{user.email}</span>
+              <button className="btn outline" onClick={logout} style={{ fontSize: '0.8rem', padding: '0.4rem 1.2rem' }}>Logout</button>
+            </div>
+          )}
         </div>
-        {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span>{user.email}</span>
-            <button className="btn outline" onClick={logout} style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem' }}>Logout</button>
-          </div>
-        )}
+        <div className="header-title-container">
+          <h1>{headerTitle}</h1>
+          <p>AI-Powered Music Discovery & Intelligence</p>
+        </div>
       </header>
 
       {!token ? (
@@ -366,29 +450,59 @@ function App() {
       ) : (
         <>
           {/* Navigation Tabs */}
-          <div className="flex-row" style={{ justifyContent: 'center', marginBottom: '2rem', gap: '1rem' }}>
-            <button className={`btn ${activeTab === 'search' ? '' : 'outline'}`} onClick={() => handleTabChange('search')}>
-              <Search size={16} style={{ marginRight: '8px' }} /> Search
-            </button>
-            <button className={`btn ${activeTab === 'mood' ? '' : 'outline'}`} onClick={() => handleTabChange('mood')}>
-              <Smile size={16} style={{ marginRight: '8px' }} /> Moods
-            </button>
-            <button className={`btn ${activeTab === 'vibe' ? '' : 'outline'}`} onClick={() => handleTabChange('vibe')}>
-              <Sliders size={16} style={{ marginRight: '8px' }} /> Vibe Builder
-            </button>
-            <button className={`btn ${activeTab === 'genres' ? '' : 'outline'}`} onClick={() => handleTabChange('genres')}>
-              <Disc size={16} style={{ marginRight: '8px' }} /> Genres
-            </button>
-            <button className={`btn ${activeTab === 'playlists' ? '' : 'outline'}`} onClick={() => handleTabChange('playlists')}>
-              <Music size={16} style={{ marginRight: '8px' }} /> Playlists
-            </button>
-            <button className={`btn ${activeTab === 'classify' ? '' : 'outline'}`} onClick={() => handleTabChange('classify')}>
-              <BarChart2 size={16} style={{ marginRight: '8px' }} /> Classify
-            </button>
+          <div className="flex-row" style={{ justifyContent: 'center', marginBottom: '3rem' }}>
+            <div className="nav-tabs">
+              <button className={`btn ${activeTab === 'search' ? '' : 'outline'}`} onClick={() => handleTabChange('search')}>
+                <Search size={16} /> Search
+              </button>
+              <button className={`btn ${activeTab === 'mood' ? '' : 'outline'}`} onClick={() => handleTabChange('mood')}>
+                <Smile size={16} /> Moods
+              </button>
+              <button className={`btn ${activeTab === 'vibe' ? '' : 'outline'}`} onClick={() => handleTabChange('vibe')}>
+                <Sliders size={16} /> Vibe Builder
+              </button>
+              <button className={`btn ${activeTab === 'genres' ? '' : 'outline'}`} onClick={() => handleTabChange('genres')}>
+                <Disc size={16} /> Genres
+              </button>
+              <button className={`btn ${activeTab === 'playlists' ? '' : 'outline'}`} onClick={() => handleTabChange('playlists')}>
+                <Music size={16} /> Playlists
+              </button>
+              <button className={`btn ${activeTab === 'classify' ? '' : 'outline'}`} onClick={() => handleTabChange('classify')}>
+                <BarChart2 size={16} /> Classify
+              </button>
+            </div>
           </div>
 
-          {error && <div className="error-message" style={{ color: 'var(--error)' }}>{error}</div>}
-          {loading && <div className="loading">Loading...</div>}
+          {showPlaylistSelector && (
+            <div className="modal-overlay" style={{
+              position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+              backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center',
+              alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(5px)'
+            }}>
+              <div className="card" style={{ width: '400px', maxWidth: '90%' }}>
+                <h3>Add to Playlist</h3>
+                <p style={{ color: 'var(--text-dim)', marginBottom: '1.5rem' }}>Select a playlist for "{trackToAddToPlaylist?.track_name}"</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
+                  {playlists.map(p => (
+                    <div
+                      key={p.id}
+                      className="track-item"
+                      onClick={() => handleAddToPlaylist(p.id)}
+                      style={{ background: 'rgba(255,255,255,0.05)' }}
+                    >
+                      <span>{p.name}</span>
+                      <Music size={14} />
+                    </div>
+                  ))}
+                  {playlists.length === 0 && <p style={{ textAlign: 'center' }}>No playlists found. Create one first!</p>}
+                </div>
+                <button className="btn outline" onClick={() => setShowPlaylistSelector(false)} style={{ marginTop: '1.5rem', width: '100%' }}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {error && <div className="error-message" style={{ color: 'var(--error-color)', textAlign: 'center', marginBottom: '1rem' }}>{error}</div>}
+          {loading && <div className="loading" style={{ textAlign: 'center', padding: '1rem' }}>Loading...</div>}
 
           <div className="main-content">
 
@@ -401,6 +515,7 @@ function App() {
                   placeholder="Name your playlist..."
                   value={playlistName}
                   onChange={(e) => setPlaylistName(e.target.value)}
+                  style={{ maxWidth: '300px' }}
                 />
                 <button className="btn" onClick={handleSavePlaylist}>Save as Playlist</button>
               </div>
@@ -434,13 +549,25 @@ function App() {
                             key={track.track_id}
                             className={`card track-item ${selectedTrack?.track_id === track.track_id ? 'selected' : ''}`}
                             onClick={() => handleSelectTrack(track)}
-                            style={{ border: selectedTrack?.track_id === track.track_id ? '1px solid var(--accent)' : 'none' }}
                           >
                             <div className="track-info">
                               <span className="track-title">{track.track_name}</span>
                               <span className="track-artist">{track.artists}</span>
                             </div>
-                            <Music size={16} color="var(--text-secondary)" />
+                            <div className="flex-row">
+                              <button
+                                className="btn outline"
+                                style={{ padding: '5px', borderRadius: '50%' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTrackToAddToPlaylist(track);
+                                  setShowPlaylistSelector(true);
+                                }}
+                              >
+                                <Music size={14} />
+                              </button>
+                              <Music size={16} color="var(--text-dim)" />
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -457,8 +584,21 @@ function App() {
                               <span className="track-title">{track.track_name}</span>
                               <span className="track-artist">{track.artists}</span>
                             </div>
-                            <div className="similarity-score" style={{ color: 'var(--accent)', fontSize: '0.8rem' }}>
-                              {(track.similarity_score * 100).toFixed(1)}% Match
+                            <div className="flex-row">
+                              <div className="similarity-score" style={{ color: 'var(--accent-primary)', fontSize: '0.8rem', fontWeight: '600' }}>
+                                {(track.similarity_score * 100).toFixed(0)}% Match
+                              </div>
+                              <button
+                                className="btn outline"
+                                style={{ padding: '5px', borderRadius: '50%' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTrackToAddToPlaylist(track);
+                                  setShowPlaylistSelector(true);
+                                }}
+                              >
+                                <Music size={14} />
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -472,37 +612,60 @@ function App() {
             {/* MOOD TAB */}
             {activeTab === 'mood' && (
               <>
-                <div className="mood-section" style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                  <h3>Select a Mood</h3>
-                  <div className="flex-row" style={{ justifyContent: 'center', flexWrap: 'wrap', marginTop: '1rem' }}>
-                    {['Happy', 'Sad', 'Energetic', 'Calm', 'Focused'].map((mood) => (
+                <div className="mood-section" style={{ textAlign: 'center', marginBottom: '3rem' }}>
+                  <h3 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>How are you feeling?</h3>
+                  <div className="flex-row" style={{ justifyContent: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                    {[
+                      { name: 'Happy', icon: '😊' },
+                      { name: 'Sad', icon: '😢' },
+                      { name: 'Energetic', icon: '⚡' },
+                      { name: 'Calm', icon: '🌊' },
+                      { name: 'Focused', icon: '🧘' },
+                      { name: 'Party', icon: '🥳' },
+                      { name: 'Workout', icon: '💪' },
+                      { name: 'Chill', icon: '☕' }
+                    ].map((mood) => (
                       <button
-                        key={mood}
-                        className="btn"
-                        onClick={() => handleMoodClick(mood)}
+                        key={mood.name}
+                        className={`btn ${selectedMood === mood.name ? '' : 'outline'}`}
+                        onClick={() => handleMoodClick(mood.name)}
                         style={{
-                          backgroundColor: 'var(--bg-elevated)',
-                          border: selectedMood === mood ? '1px solid var(--accent)' : '1px solid transparent',
-                          color: 'var(--text-primary)',
-                          transform: selectedMood === mood ? 'scale(1.05)' : 'scale(1)'
+                          padding: '1rem 2rem',
+                          fontSize: '1.1rem',
+                          minWidth: '150px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px'
                         }}
                       >
-                        {mood}
+                        <span style={{ fontSize: '2rem' }}>{mood.icon}</span>
+                        {mood.name}
                       </button>
                     ))}
                   </div>
                 </div>
 
                 {selectedMood && recommendations.length > 0 && (
-                  <div className="recommendations-section">
-                    <h2>{selectedMood} Playlist</h2>
-                    <div className="track-list grid-view" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+                  <div className="recommendations-section fade-in">
+                    <h2 style={{ marginBottom: '1.5rem' }}>{selectedMood} Recommendations</h2>
+                    <div className="track-list grid-view" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
                       {recommendations.map((track) => (
                         <div key={track.track_id} className="card track-item">
                           <div className="track-info">
                             <span className="track-title">{track.track_name}</span>
                             <span className="track-artist">{track.artists}</span>
                           </div>
+                          <button
+                            className="btn outline"
+                            style={{ padding: '8px', borderRadius: '50%' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTrackToAddToPlaylist(track);
+                              setShowPlaylistSelector(true);
+                            }}
+                          >
+                            <Music size={18} />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -513,10 +676,10 @@ function App() {
 
             {/* VIBE BUILDER TAB */}
             {activeTab === 'vibe' && (
-              <div className="content-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
+              <div className="content-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr', gap: '2rem' }}>
                 <div className="vibe-controls card">
                   <h3>Vibe Controls</h3>
-                  <div className="grid">
+                  <div className="grid" style={{ gridTemplateColumns: '1fr' }}>
                     {Object.keys(vibe).map((feature) => (
                       <div key={feature} className="slider-container">
                         <div className="flex-row" style={{ justifyContent: 'space-between', marginBottom: '5px' }}>
@@ -527,13 +690,56 @@ function App() {
                           type="range" min="0" max="1" step="0.1"
                           value={vibe[feature]}
                           onChange={(e) => setVibe({ ...vibe, [feature]: parseFloat(e.target.value) })}
-                          style={{ width: '100%', accentColor: 'var(--accent)' }}
+                          style={{ width: '100%', accentColor: 'var(--accent-primary)' }}
                         />
                       </div>
                     ))}
                   </div>
-                  <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                    <button className="btn" onClick={handleVibeCheck}>Generate Matches</button>
+                  <div style={{ textAlign: 'center', marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <button className="btn" onClick={handleVibeCheck} style={{ width: '100%' }}>Generate Matches</button>
+
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>Save this vibe</p>
+                      <div className="flex-row">
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="Profile name..."
+                          value={profileName}
+                          onChange={(e) => setProfileName(e.target.value)}
+                          style={{ padding: '8px 16px' }}
+                        />
+                        <button className="btn outline" onClick={handleSaveProfile} style={{ padding: '8px 16px' }}>Save</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="saved-profiles card">
+                  <h3>Saved Profiles</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
+                    {savedProfiles.map(profile => (
+                      <div
+                        key={profile.id}
+                        className="track-item"
+                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid transparent' }}
+                      >
+                        <div onClick={() => applyProfile(profile)} style={{ flex: 1 }}>
+                          <span style={{ fontWeight: '600', display: 'block' }}>{profile.name}</span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                            D:{profile.danceability} E:{profile.energy} V:{profile.valence}
+                          </span>
+                        </div>
+                        <button
+                          className="btn outline"
+                          style={{ padding: '4px 8px', fontSize: '0.7rem', color: 'var(--error-color)', borderColor: 'rgba(255,77,77,0.2)' }}
+                          onClick={() => handleDeleteProfile(profile.id)}
+                        >
+                          Del
+                        </button>
+                      </div>
+                    ))}
+                    {savedProfiles.length === 0 && <p style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '2rem 1rem' }}>No saved profiles yet.</p>}
                   </div>
                 </div>
 
@@ -547,8 +753,21 @@ function App() {
                             <span className="track-title">{track.track_name}</span>
                             <span className="track-artist">{track.artists}</span>
                           </div>
-                          <div className="similarity-score" style={{ color: 'var(--accent)', fontSize: '0.8rem' }}>
-                            {(track.similarity_score * 100).toFixed(1)}% Match
+                          <div className="flex-row">
+                            <div className="similarity-score" style={{ color: 'var(--accent-primary)', fontSize: '0.9rem', fontWeight: '600' }}>
+                              {(track.similarity_score * 100).toFixed(0)}% Match
+                            </div>
+                            <button
+                              className="btn outline"
+                              style={{ padding: '8px', borderRadius: '50%' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTrackToAddToPlaylist(track);
+                                setShowPlaylistSelector(true);
+                              }}
+                            >
+                              <Music size={18} />
+                            </button>
                           </div>
                         </div>
                       ))}

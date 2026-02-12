@@ -99,6 +99,25 @@ class Recommender:
                 (filtered_df['instrumentalness'] > 0.5) & 
                 (filtered_df['speechiness'] < 0.3)
             ]
+        elif mood == 'party':
+            # High danceability, High energy, High valence
+            filtered_df = filtered_df[
+                (filtered_df['danceability'] > 0.7) & 
+                (filtered_df['energy'] > 0.7) &
+                (filtered_df['valence'] > 0.6)
+            ]
+        elif mood == 'workout':
+            # Highest energy, High tempo (> 120 bpm)
+            filtered_df = filtered_df[
+                (filtered_df['energy'] > 0.8) & 
+                (filtered_df['tempo'] > 120)
+            ]
+        elif mood == 'chill':
+            # Low energy, Mid valence, High acousticness or instrumentalness
+            filtered_df = filtered_df[
+                (filtered_df['energy'] < 0.5) & 
+                (filtered_df['acousticness'] > 0.4)
+            ]
             
         if filtered_df.empty:
             return []

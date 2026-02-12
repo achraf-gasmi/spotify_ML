@@ -75,7 +75,7 @@ def get_recommendations(track_id: str, limit: int = 20):
 
 @app.get("/api/v1/recommendations/mood/{mood_name}")
 def get_mood_recommendations(mood_name: str, limit: int = 20):
-    valid_moods = ['happy', 'sad', 'energetic', 'calm', 'focused']
+    valid_moods = ['happy', 'sad', 'energetic', 'calm', 'focused', 'party', 'workout', 'chill']
     if mood_name.lower() not in valid_moods:
         raise HTTPException(status_code=400, detail=f"Invalid mood. Available moods: {', '.join(valid_moods)}")
         
@@ -252,6 +252,81 @@ def get_playlist(playlist_id: int, db: Session = Depends(get_db), current_user: 
             for t in playlist.tracks
         ]
     }
+
+@app.post("/api/v1/playlists/{playlist_id}/tracks")
+def add_track_to_playlist(
+    playlist_id: int,
+    track_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    playlist = db.query(Playlist).filter(Playlist.id == playlist_id, Playlist.user_id == current_user.id).first()
+    if not playlist:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    
+    # Check if track exists in the main tracks table
+    db_track = db.query(TrackModel).filter(TrackModel.track_id == track_id).first()
+    if not db_track:
+        raise HTTPException(status_code=404, detail="Track not found in database")
+    
+    # Check if already in playlist
+    if db_track in playlist.tracks:
+        return {"message": "Track already in playlist"}
+        
+    playlist.tracks.append(db_track)
+    db.commit()
+    
+    return {"message": f"Track {db_track.track_name} added to playlist {playlist.name}"}
+
+# Preference Profile Routes
+from models import PreferenceProfile
+
+class PreferenceProfileCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    danceability: float = 0.5
+    energy: float = 0.5
+    valence: float = 0.5
+    acousticness: float = 0.5
+    instrumentalness: float = 0.5
+    speechiness: float = 0.5
+    liveness: float = 0.5
+
+@app.post("/api/v1/preferences")
+def create_preference_profile(
+    profile: PreferenceProfileCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    new_profile = PreferenceProfile(
+        **profile.dict(),
+        user_id=current_user.id
+    )
+    db.add(new_profile)
+    db.commit()
+    db.refresh(new_profile)
+    return new_profile
+
+@app.get("/api/v1/preferences")
+def list_preference_profiles(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return db.query(PreferenceProfile).filter(PreferenceProfile.user_id == current_user.id).all()
+
+@app.delete("/api/v1/preferences/{profile_id}")
+def delete_preference_profile(
+    profile_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    profile = db.query(PreferenceProfile).filter(PreferenceProfile.id == profile_id, PreferenceProfile.user_id == current_user.id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    db.delete(profile)
+    db.commit()
+    return {"message": "Profile deleted"}
 
 from classifier import GenreClassifier
 classifier = GenreClassifier()
