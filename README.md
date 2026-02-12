@@ -41,7 +41,13 @@ Generate playlists that match the physical intensity of your workouts:
 - **Custom Duration**: Set your target time from 15 to 90 minutes.
 - **Phase Visuals**: Tracks are color-coded by workout phase for easy navigation.
 
-### 7. **User Accounts & Security** 🔐
+### 7. **Genre Analytics Dashboard** 📈🔍
+Deep dive into the characteristics of 125 different musical genres:
+- **Genre DNA**: Every genre has a dedicated analytics dashboard visualizing its unique audio profile (Energy, Danceability, etc.).
+- **Market Insights**: Integrated data on average track popularity and top artists within each genre.
+- **Top Artist Discovery**: Identify the most representative artists for any given genre.
+
+### 8. **User Accounts & Security** 🔐
 - **Auth**: JWT-based authentication for secure personal sessions.
 - **Persistence**: All playlists, history, tracks, and preference profiles are saved to a SQLAlchemy-managed database.
 

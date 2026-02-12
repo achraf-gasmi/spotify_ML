@@ -26,6 +26,20 @@ def test_custom_playlist_endpoint():
     except Exception as e:
         print(f"Error: {e}")
 
+def test_genre_analytics_endpoint():
+    print("Testing /genres/pop/analytics...")
+    try:
+        response = requests.get(f"{BASE_URL}/genres/pop/analytics")
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.json()
+            print(f"Genre: {data['genre']}")
+            print(f"Avg Popularity: {data['popularity_stats']['avg']}")
+            print(f"Top Artist: {data['top_artists'][0]['name']}")
+    except Exception as e:
+        print(f"Error: {e}")
+
 if __name__ == "__main__":
     test_workout_endpoint()
     test_custom_playlist_endpoint()
+    test_genre_analytics_endpoint()

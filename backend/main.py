@@ -448,6 +448,17 @@ def generate_workout_playlist(
         "tracks": tracks
     }
 
+@app.get("/api/v1/genres/{genre}/analytics")
+def get_genre_analytics(
+    genre: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    analytics = recommender.get_genre_analytics(genre)
+    if not analytics:
+        raise HTTPException(status_code=404, detail=f"Genre '{genre}' not found")
+    return analytics
+
 from classifier import GenreClassifier
 classifier = GenreClassifier()
 

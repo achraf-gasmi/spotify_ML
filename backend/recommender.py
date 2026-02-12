@@ -259,3 +259,51 @@ class Recommender:
                 workout_tracks.extend(phase_tracks)
                 
         return workout_tracks
+
+    def get_genre_analytics(self, genre: str):
+        """
+        Calculates aggregate analytics for a specific genre.
+        Includes average audio features, popularity distribution, and top tracks.
+        """
+        genre_tracks = self.df[self.df['track_genre'].str.lower() == genre.lower()].copy()
+        
+        if genre_tracks.empty:
+            return None
+            
+        # Calculate mean for all 17 audio features
+        # Note: FEATURE_COLS only has 12 features, but the dataset has 17. 
+        # Let's include all numeric columns that are relevant.
+        numeric_cols = genre_tracks.select_dtypes(include=[np.number]).columns.tolist()
+        # Filter out key-like/ID columns if necessary, but averages are usually fine.
+        
+        averages = genre_tracks[numeric_cols].mean().to_dict()
+        
+        # Popularity stats
+        popularity_stats = {
+            "avg": float(genre_tracks['popularity'].mean()),
+            "max": int(genre_tracks['popularity'].max()),
+            "min": int(genre_tracks['popularity'].min())
+        }
+        
+        # Top 5 tracks by popularity
+        top_tracks = genre_tracks.sort_values(by='popularity', ascending=False).head(5)
+        top_tracks_list = top_tracks.to_dict('records')
+        
+        # Top 5 artists by track count and popularity
+        top_artists = genre_tracks.groupby('artists')['popularity'].agg(['mean', 'count']).sort_values(by='mean', ascending=False).head(5)
+        top_artists_list = []
+        for artist, row in top_artists.iterrows():
+            top_artists_list.append({
+                "name": artist,
+                "avg_popularity": float(row['mean']),
+                "track_count": int(row['count'])
+            })
+            
+        return {
+            "genre": genre,
+            "total_tracks": len(genre_tracks),
+            "average_features": averages,
+            "popularity_stats": popularity_stats,
+            "top_tracks": top_tracks_list,
+            "top_artists": top_artists_list
+        }
