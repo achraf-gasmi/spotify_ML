@@ -12,6 +12,8 @@ import AudioVisualizer from './components/features/AudioVisualizer'
 import GenreExplorer from './components/features/GenreExplorer'
 import Recommendations from './components/features/Recommendations'
 import WorkoutGenerator from './components/features/WorkoutGenerator'
+import TrendAnalysis from './components/features/TrendAnalysis'
+import { SERVICES } from './config'
 
 function App() {
   const [activeTab, setActiveTab] = useState('search') // search, mood, vibe, genres, analytics
@@ -80,7 +82,7 @@ function App() {
 
   const fetchUser = async () => {
     try {
-      const response = await axios.get('/api/v1/auth/me', {
+      const response = await axios.get(`${SERVICES.AUTH}/api/v1/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       setUser(response.data)
@@ -92,7 +94,7 @@ function App() {
 
   const fetchPreferences = async () => {
     try {
-      const response = await axios.get('/api/v1/preferences', getAuthHeaders())
+      const response = await axios.get(`${SERVICES.AUTH}/api/v1/preferences`, getAuthHeaders())
       setSavedProfiles(response.data)
     } catch (err) {
       console.error(err)
@@ -110,7 +112,7 @@ function App() {
         name: profileName,
         ...vibe
       }
-      await axios.post('/api/v1/preferences', payload, getAuthHeaders())
+      await axios.post(`${SERVICES.AUTH}/api/v1/preferences`, payload, getAuthHeaders())
       alert(`Profile "${profileName}" saved!`)
       setProfileName('')
       fetchPreferences()
@@ -126,7 +128,7 @@ function App() {
     if (!window.confirm("Delete this profile?")) return
     try {
       setLoading(true)
-      await axios.delete(`/api/v1/preferences/${profileId}`, getAuthHeaders())
+      await axios.delete(`${SERVICES.AUTH}/api/v1/preferences/${profileId}`, getAuthHeaders())
       fetchPreferences()
     } catch (err) {
       console.error(err)
@@ -148,7 +150,7 @@ function App() {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await axios.get('/api/v1/analytics/summary', getAuthHeaders())
+      const response = await axios.get(`${SERVICES.ANALYTICS}/api/v1/analytics/summary`, getAuthHeaders())
       setAnalytics(response.data)
     } catch (err) {
       console.error(err)
@@ -159,7 +161,7 @@ function App() {
     try {
       // Simulate play event
       console.log(`Playing: ${track.track_name}`)
-      await axios.post(`/api/v1/history?track_id=${track.track_id}`, null, getAuthHeaders())
+      await axios.post(`${SERVICES.ANALYTICS}/api/v1/history?track_id=${track.track_id}`, null, getAuthHeaders())
       if (activeTab === 'analytics') fetchAnalytics()
     } catch (err) {
       console.error('Failed to record history:', err)
@@ -169,7 +171,7 @@ function App() {
   const handleAddToPlaylist = async (playlistId) => {
     try {
       setLoading(true)
-      await axios.post(`/api/v1/playlists/${playlistId}/tracks?track_id=${trackToAddToPlaylist.track_id}`, null, getAuthHeaders())
+      await axios.post(`${SERVICES.PLAYLIST}/api/v1/playlists/${playlistId}/tracks?track_id=${trackToAddToPlaylist.track_id}`, null, getAuthHeaders())
       alert(`Track added to playlist!`)
       setShowPlaylistSelector(false)
       setTrackToAddToPlaylist(null)
@@ -182,11 +184,24 @@ function App() {
     }
   }
 
+  const fetchDiscovery = async () => {
+    try {
+      setLoading(true)
+      const response = await axios.post(`${SERVICES.RECOMMENDER}/api/v1/recommendations/personalized?limit=20`, {}, getAuthHeaders())
+      setRecommendations(response.data.recommendations)
+    } catch (err) {
+      console.error(err)
+      setError("Failed to fetch discovery recommendations")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleGenerateWorkout = async () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await axios.post('/api/v1/playlists/workout', {
+      const response = await axios.post(`${SERVICES.PLAYLIST}/api/v1/playlists/workout`, {
         duration_minutes: workoutDuration,
         intensity: workoutIntensity
       }, getAuthHeaders())
@@ -209,7 +224,7 @@ function App() {
       formData.append('username', authEmail)
       formData.append('password', authPassword)
 
-      const response = await axios.post('/api/v1/auth/login', formData)
+      const response = await axios.post(`${SERVICES.AUTH}/api/v1/auth/login`, formData)
       const accessToken = response.data.access_token
       setToken(accessToken)
       localStorage.setItem('token', accessToken)
@@ -228,7 +243,7 @@ function App() {
     setLoading(true)
     setError(null)
     try {
-      await axios.post('/api/v1/auth/signup', {
+      await axios.post(`${SERVICES.AUTH}/api/v1/auth/signup`, {
         email: authEmail,
         password: authPassword
       })
@@ -254,7 +269,7 @@ function App() {
   const fetchGenres = async () => {
     try {
       setLoading(true)
-      const response = await axios.get('/api/v1/genres')
+      const response = await axios.get(`${SERVICES.RECOMMENDER}/api/v1/genres`)
       setGenres(response.data.genres)
     } catch (err) {
       console.error(err)
@@ -267,7 +282,7 @@ function App() {
   const fetchPlaylists = async () => {
     try {
       setLoading(true)
-      const response = await axios.get('/api/v1/playlists', getAuthHeaders())
+      const response = await axios.get(`${SERVICES.PLAYLIST}/api/v1/playlists`, getAuthHeaders())
       setPlaylists(response.data)
     } catch (err) {
       console.error(err)
@@ -301,7 +316,7 @@ function App() {
       // use the new custom playlist endpoint
       if (activeTab === 'workout' || !selectedMood && !selectedTrack) {
         const trackIds = recommendations.map(t => t.track_id)
-        await axios.post('/api/v1/playlists/custom', {
+        await axios.post(`${SERVICES.PLAYLIST}/api/v1/playlists/custom`, {
           name: playlistName,
           track_ids: trackIds
         }, getAuthHeaders())
@@ -312,7 +327,7 @@ function App() {
         } else if (selectedTrack) {
           payload.seed_track_id = selectedTrack.track_id
         }
-        await axios.post('/api/v1/playlists/generate', null, {
+        await axios.post(`${SERVICES.PLAYLIST}/api/v1/playlists/generate`, null, {
           params: payload,
           ...getAuthHeaders()
         })
@@ -332,7 +347,7 @@ function App() {
   const handlePlaylistClick = async (playlistId) => {
     try {
       setLoading(true)
-      const response = await axios.get(`/api/v1/playlists/${playlistId}`, getAuthHeaders())
+      const response = await axios.get(`${SERVICES.PLAYLIST}/api/v1/playlists/${playlistId}`, getAuthHeaders())
       setSelectedPlaylist(response.data)
       setRecommendations(response.data.tracks)
     } catch (err) {
@@ -360,7 +375,7 @@ function App() {
     setSearchResults([])
 
     try {
-      const response = await axios.get(`/api/v1/search?q=${query}&limit=10`)
+      const response = await axios.get(`${SERVICES.RECOMMENDER}/api/v1/search?q=${query}&limit=10`)
       setSearchResults(response.data.results)
     } catch (err) {
       console.error(err)
@@ -377,7 +392,7 @@ function App() {
     setRecommendations([])
 
     try {
-      const response = await axios.get(`/api/v1/recommendations/${track.track_id}?limit=10`)
+      const response = await axios.get(`${SERVICES.RECOMMENDER}/api/v1/recommendations/${track.track_id}?limit=10`)
       setRecommendations(response.data.recommendations)
     } catch (err) {
       console.error(err)
@@ -394,7 +409,7 @@ function App() {
     setRecommendations([])
 
     try {
-      const response = await axios.get(`/api/v1/recommendations/mood/${mood.toLowerCase()}?limit=10`)
+      const response = await axios.get(`${SERVICES.RECOMMENDER}/api/v1/recommendations/mood/${mood.toLowerCase()}?limit=10`)
       setRecommendations(response.data.recommendations)
     } catch (err) {
       console.error(err)
@@ -413,11 +428,11 @@ function App() {
 
     try {
       // Fetch tracks
-      const tracksResponse = await axios.get(`/api/v1/genres/${genre}/tracks?limit=10`)
+      const tracksResponse = await axios.get(`${SERVICES.RECOMMENDER}/api/v1/genres/${genre}/tracks?limit=10`)
       setRecommendations(tracksResponse.data.tracks)
 
       // Fetch analytics
-      const analyticsResponse = await axios.get(`/api/v1/genres/${genre}/analytics`, getAuthHeaders())
+      const analyticsResponse = await axios.get(`${SERVICES.ANALYTICS}/api/v1/genres/${genre}/analytics`, getAuthHeaders())
       setGenreAnalytics(analyticsResponse.data)
     } catch (err) {
       console.error(err)
@@ -433,7 +448,7 @@ function App() {
     setRecommendations([])
 
     try {
-      const response = await axios.post('/api/v1/recommendations/custom?limit=10', vibe)
+      const response = await axios.post(`${SERVICES.RECOMMENDER}/api/v1/recommendations/custom?limit=10`, vibe)
       setRecommendations(response.data.recommendations)
     } catch (err) {
       console.error(err)
@@ -449,7 +464,7 @@ function App() {
     setPrediction(null)
 
     try {
-      const response = await axios.post('/api/v1/classify', vibe)
+      const response = await axios.post(`${SERVICES.RECOMMENDER}/api/v1/classify`, vibe)
       setPrediction(response.data.top_prediction)
     } catch (err) {
       console.error(err)
@@ -466,6 +481,7 @@ function App() {
     if (tab === 'playlists') fetchPlaylists()
     if (tab === 'genres') fetchGenres()
     if (tab === 'analytics') fetchAnalytics()
+    if (tab === 'discovery') fetchDiscovery()
 
     // Update header title based on tab
     const titles = {
@@ -476,7 +492,9 @@ function App() {
       playlists: 'Your Collections',
       classify: 'AI Genre Classifier',
       analytics: 'Listening Analytics',
-      workout: 'Workout Generator'
+      workout: 'Workout Generator',
+      trends: 'Global Music Trends',
+      discovery: 'Personalized For You'
     }
     setHeaderTitle(titles[tab] || 'Spotify Music Intelligence')
   }
@@ -539,6 +557,14 @@ function App() {
               <Button variant={activeTab === 'workout' ? 'primary' : 'outline'} onClick={() => handleTabChange('workout')}>
                 <Dumbbell size={16} /> Workout
               </Button>
+              <Button variant={activeTab === 'trends' ? 'primary' : 'outline'} onClick={() => handleTabChange('trends')}>
+                <TrendingUp size={16} /> Trends
+              </Button>
+              {token && (
+                <Button variant={activeTab === 'discovery' ? 'primary' : 'outline'} onClick={() => handleTabChange('discovery')}>
+                  <Music size={16} /> For You
+                </Button>
+              )}
             </div>
           </div>
 
@@ -776,6 +802,10 @@ function App() {
               />
             )}
 
+            {activeTab === 'trends' && (
+              <TrendAnalysis />
+            )}
+
             {/* ANALYTICS TAB */}
             {activeTab === 'analytics' && (
               <div className="analytics-dashboard fade-in">
@@ -848,6 +878,19 @@ function App() {
                   </Card>
                 )}
               </div>
+            )}
+
+            {/* DISCOVERY TAB */}
+            {activeTab === 'discovery' && (
+              <Recommendations
+                title="Personalized Discovery"
+                tracks={recommendations}
+                onPlay={handlePlayTrack}
+                onAddToPlaylist={(track) => {
+                  setTrackToAddToPlaylist(track);
+                  setShowPlaylistSelector(true);
+                }}
+              />
             )}
 
             {/* CLASSIFY TAB */}

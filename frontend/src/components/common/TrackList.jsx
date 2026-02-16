@@ -21,9 +21,32 @@ const TrackList = ({
                     className={`card track-item ${selectedTrackId === track.track_id ? 'selected' : ''}`}
                 >
                     <div className="track-info">
-                        <span className="track-title">{track.track_name}</span>
-                        <span className="track-artist">{track.artists}</span>
-                        {track.tempo && (
+                        <span className="track-title" style={{ fontWeight: '600', color: 'var(--text-main)', display: 'block' }}>{track.track_name}</span>
+                        <span className="track-artist" style={{ color: 'var(--text-dim)', fontSize: '0.9rem' }}>{track.artists}</span>
+
+                        {track.match_details && (
+                            <div className="match-explanation" style={{ marginTop: '0.8rem', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {Object.entries(track.match_details)
+                                    .filter(([_, val]) => val > 0.9) // Show only high matches
+                                    .slice(0, 3) // Show top 3
+                                    .map(([key, val]) => (
+                                        <span key={key} style={{
+                                            fontSize: '0.65rem',
+                                            background: 'rgba(29, 215, 96, 0.1)',
+                                            color: 'var(--accent-primary)',
+                                            padding: '2px 8px',
+                                            borderRadius: '10px',
+                                            border: '1px solid rgba(29, 215, 96, 0.2)',
+                                            textTransform: 'capitalize'
+                                        }}>
+                                            {key} match
+                                        </span>
+                                    ))
+                                }
+                            </div>
+                        )}
+
+                        {!track.match_details && track.tempo && (
                             <div className="flex-row" style={{ marginTop: '0.5rem', gap: '1rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
                                 <span>BPM: {Math.round(track.tempo)}</span>
                                 <span>Energy: {Math.round(track.energy * 100)}%</span>

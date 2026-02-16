@@ -459,6 +459,13 @@ def get_genre_analytics(
         raise HTTPException(status_code=404, detail=f"Genre '{genre}' not found")
     return analytics
 
+@app.get("/api/v1/analytics/trends")
+def get_global_trends(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return recommender.get_trend_analysis()
+
 from classifier import GenreClassifier
 classifier = GenreClassifier()
 

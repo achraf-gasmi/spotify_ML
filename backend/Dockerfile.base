@@ -1,0 +1,30 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements or just install key packages directly for simplicity in this setup
+# Since we have multiple services, we'll install common ones here
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn \
+    sqlalchemy \
+    psycopg2-binary \
+    python-jose[cryptography] \
+    passlib \
+    "bcrypt<4.0.1" \
+    python-multipart \
+    python-dotenv \
+    pandas \
+    numpy \
+    scikit-learn \
+    pinecone \
+    requests \
+    xgboost
+
+# This base image is meant to be extended by specific services

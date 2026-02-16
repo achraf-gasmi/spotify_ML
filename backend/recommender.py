@@ -3,8 +3,21 @@ import os
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
+from dotenv import load_dotenv
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+# pinecone is an optional dependency; fall back to in-memory similarity if unavailable
+try:
+    from pinecone import Pinecone
+except ImportError:  # pragma: no cover - optional
+    Pinecone = None
+
+
+load_dotenv()
+
+# data directory should live at the project root (Recommendation folder).
+# consume project structure consistently regardless of working directory.
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 DATASET_PATH = os.path.join(DATA_DIR, "cleaned_dataset.csv")
 
 FEATURE_COLS = [
@@ -15,13 +28,36 @@ FEATURE_COLS = [
 
 class Recommender:
     def __init__(self):
-        self.df = None
-        self.scaled_features = None
-        self._load_data()
+        self.df = pd.DataFrame()
+        self.scaled_features = np.zeros((0, len(FEATURE_COLS)))
+        try:
+            self._load_data()
+        except Exception as e:
+            # don't crash the whole app on missing data; log and continue with empty dataset
+            print(f"WARNING: Recommender initialization failed: {e}")
+            print("Recommendations will return empty results until the dataset is fixed.")
 
     def _load_data(self):
         if not os.path.exists(DATASET_PATH):
             raise FileNotFoundError(f"Dataset not found at {DATASET_PATH}. Please run clean_data.py first.")
+        
+        # Load Pinecone if available and configured
+        self.pc = None
+        self.index = None
+        if Pinecone is not None and os.getenv("PINECONE_API_KEY"):
+            try:
+                self.pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+                self.index_name = os.getenv("PINECONE_INDEX_NAME", "spotify-intelligence")
+                self.index = self.pc.Index(self.index_name)
+            except Exception as e:
+                print(f"⚠️  Pinecone initialization failed: {e}")
+                self.pc = None
+                self.index = None
+        else:
+            if Pinecone is None:
+                print("⚠️  Pinecone library not installed; using local similarity fallback.")
+            else:
+                print("⚠️  PINECONE_API_KEY not set; using local similarity fallback.")
         
         self.df = pd.read_csv(DATASET_PATH)
         
@@ -31,36 +67,128 @@ class Recommender:
         
     def get_recommendations(self, track_id: str, limit: int = 20):
         """
-        Returns recommendations based on audio feature similarity.
+        Returns recommendations based on audio feature similarity using Pinecone.
+        Includes a breakdown of feature matches for explanations.
         """
-        # Find the index of the track
+        # Find the index of the track in local DF for input vector
         track_idx = self.df.index[self.df['track_id'] == track_id].tolist()
         
         if not track_idx:
+            # If not in local DF, skip or handle via Pinecone metadata
             return []
         
         track_idx = track_idx[0]
-        
-        # Calculate cosine similarity between the input track and all other tracks
-        # Note: For large datasets, this can be slow. 
-        # For 89k rows, doing it on-the-fly might take a second or two.
-        # We can optimize by pre-calculating or using KDTree/BallTree if needed.
-        # For now, let's try direct cosine similarity for MVP.
-        
-        input_vector = self.scaled_features[track_idx].reshape(1, -1)
-        sim_scores = cosine_similarity(input_vector, self.scaled_features).flatten()
-        
-        # Get top indices
-        # We start from 1 because 0 is the track itself (similarity 1.0)
-        top_indices = sim_scores.argsort()[::-1][1:limit+1]
+        input_vector = self.scaled_features[track_idx].tolist()
         
         recommendations = []
-        for idx in top_indices:
-            track = self.df.iloc[idx].to_dict()
-            track['similarity_score'] = float(sim_scores[idx])
-            recommendations.append(track)
+        # attempt Pinecone query if we have an index
+        if self.index is not None:
+            try:
+                query_response = self.index.query(
+                    vector=input_vector,
+                    top_k=limit + 1,
+                    include_metadata=True
+                )
+            except Exception as e:
+                # log and drop the index so we fall back below
+                print(f"WARNING: Pinecone query failed ({e}); falling back to local similarity.")
+                self.index = None
+            else:
+                # process pinecone results
+                for match in query_response['matches']:
+                    if match['id'] == track_id:
+                        continue
+                    track = {
+                        "track_id": match['id'],
+                        "track_name": match['metadata']['track_name'],
+                        "artists": match['metadata']['artists'],
+                        "track_genre": match['metadata']['track_genre'],
+                        "popularity": match['metadata']['popularity'],
+                        "similarity_score": float(match['score'])
+                    }
+                    match_details = {}
+                    match_idx_list = self.df.index[self.df['track_id'] == match['id']].tolist()
+                    if match_idx_list:
+                        match_idx = match_idx_list[0]
+                        for col in FEATURE_COLS:
+                            diff = abs(self.scaled_features[track_idx][FEATURE_COLS.index(col)] - 
+                                       self.scaled_features[match_idx][FEATURE_COLS.index(col)])
+                            match_details[col] = round(1 - diff, 3)
+                    track['match_details'] = match_details
+                    recommendations.append(track)
+        # if we don't have a valid index (or it failed), do local similarity
+        if self.index is None:
+            sim = cosine_similarity([input_vector], self.scaled_features).flatten()
+            indices = sim.argsort()[::-1]
+            for idx in indices:
+                if self.df.iloc[idx]['track_id'] == track_id:
+                    continue
+                rec = self.df.iloc[idx].to_dict()
+                rec['similarity_score'] = float(sim[idx])
+                recommendations.append(rec)
+                if len(recommendations) >= limit:
+                    break
+        
+        return recommendations[:limit]
+
+    def get_personalized_recommendations(self, user_history: list, all_history_data: list, limit: int = 20):
+        """
+        Hybrid Recommender: Combines Collaborative Filtering and Content-Based.
+        - user_history: list of track IDs the user has listened to.
+        - all_history_data: list of {'user_id': x, 'track_id': y} for all users.
+        """
+        if not user_history:
+            # Fallback to general popularity or trending
+            return self.get_trend_analysis()['rising_genres'][:limit]
+
+        # 1. Collaborative Filtering Component (User-User)
+        # Find users who listened to the same tracks
+        user_history_set = set(user_history)
+        similar_users = {}
+        
+        for entry in all_history_data:
+            uid = entry['user_id']
+            tid = entry['track_id']
+            if tid in user_history_set:
+                similar_users[uid] = similar_users.get(uid, 0) + 1
+        
+        # Recommendation candidates from similar users
+        candidates = {}
+        for entry in all_history_data:
+            uid = entry['user_id']
+            tid = entry['track_id']
+            if uid in similar_users and tid not in user_history_set:
+                weight = similar_users[uid]
+                candidates[tid] = candidates.get(tid, 0) + weight
+        
+        # 2. Content-Based Component (Pinecone)
+        # Get recommendations based on the user's most recent track
+        last_track_id = user_history[-1]
+        content_recs = self.get_recommendations(last_track_id, limit=limit*2)
+        
+        # 3. Combine and Rank
+        hybrid_scores = {}
+        
+        # Add collaborative candidates
+        for tid, score in candidates.items():
+            hybrid_scores[tid] = score * 0.5  # Normalize/Weighting
             
-        return recommendations
+        # Add content candidates
+        for track in content_recs:
+            tid = track['track_id']
+            score = track['similarity_score']
+            hybrid_scores[tid] = hybrid_scores.get(tid, 0) + score
+            
+        # Final ranking
+        sorted_tids = sorted(hybrid_scores.items(), key=lambda x: x[1], reverse=True)[:limit]
+        
+        final_recs = []
+        for tid, score in sorted_tids:
+            track_info = self.get_track_by_id(tid) or {"track_id": tid, "track_name": "Unknown"}
+            track_info['hybrid_score'] = float(score)
+            final_recs.append(track_info)
+            
+        return final_recs
 
     def get_recommendations_by_mood(self, mood: str, limit: int = 20):
         """
@@ -306,4 +434,47 @@ class Recommender:
             "popularity_stats": popularity_stats,
             "top_tracks": top_tracks_list,
             "top_artists": top_artists_list
+        }
+    def get_trend_analysis(self):
+        """
+        Identifies and visualizes music trends (FR-009).
+        Since we lack temporal data, we simulate 'Rising' trends and analyze 
+        popularity-feature correlations.
+        """
+        # 1. Rising Genres (Top 10 by average popularity)
+        genre_popularity = self.df.groupby('track_genre')['popularity'].mean().sort_values(ascending=False).head(10)
+        rising_genres = [
+            {"genre": g, "popularity": float(p), "is_trending": True} 
+            for g, p in genre_popularity.items()
+        ]
+
+        # 2. Audio Feature Trends (Global Averages)
+        global_averages = self.df[FEATURE_COLS].mean().to_dict()
+
+        # 3. Popularity vs. Audio Feature Correlations
+        correlations = {}
+        for col in FEATURE_COLS:
+            correlations[col] = float(self.df['popularity'].corr(self.df[col]))
+
+        # 4. Explicit Content Trends (Explicit vs. Non-Explicit popularity)
+        explicit_trend = self.df.groupby('explicit')['popularity'].mean().to_dict()
+        
+        # 5. Simulated Historical Trends (demonstrating FR-009 visualization)
+        # We'll generate some trend lines for the top 5 genres
+        simulated_trends = []
+        months = ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb"]
+        for genre in list(genre_popularity.index[:5]):
+            base_pop = genre_popularity[genre]
+            series = [float(base_pop + np.random.normal(0, 2)) for _ in months]
+            simulated_trends.append({"genre": genre, "data": series})
+
+        return {
+            "rising_genres": rising_genres,
+            "feature_averages": global_averages,
+            "correlations": correlations,
+            "explicit_popularity": explicit_trend,
+            "simulated_timeline": {
+                "months": months,
+                "trends": simulated_trends
+            }
         }

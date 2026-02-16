@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: spotify_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  auth-service:
+    build:
+      context: ./backend
+      dockerfile: services/auth_service/Dockerfile
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/spotify_db
+      - SECRET_KEY=your-secret-key-please-change-in-prod
+    depends_on:
+      - database
+
+  recommender-service:
+    build:
+      context: ./backend
+      dockerfile: services/recommender_service/Dockerfile
+    ports:
+      - "8002:8002"
+    env_file:
+      - ./backend/.env
+    environment:
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
+      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME}
+    volumes:
+      - ./data:/app/data
+
+  analytics-service:
+    build:
+      context: ./backend
+      dockerfile: services/analytics_service/Dockerfile
+    ports:
+      - "8003:8003"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/spotify_db
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - database
+
+  playlist-service:
+    build:
+      context: ./backend
+      dockerfile: services/playlist_service/Dockerfile
+    ports:
+      - "8004:8004"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/spotify_db
+    depends_on:
+      - database
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - auth-service
+      - recommender-service
+      - analytics-service
+      - playlist-service
+
+volumes:
+  postgres_data:

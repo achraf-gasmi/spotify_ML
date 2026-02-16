@@ -7,7 +7,9 @@ import sys
 # Add parent directory to path if needed (though running from backend dir usually works)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+# point at the project‑level data folder
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 DATASET_PATH = os.path.join(DATA_DIR, "cleaned_dataset.csv")
 
 def init_db():

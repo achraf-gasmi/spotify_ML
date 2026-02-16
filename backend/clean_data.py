@@ -1,13 +1,18 @@
 import pandas as pd
 import os
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+# make sure we reference the top‑level data folder (Recommendation root)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 INPUT_PATH = os.path.join(DATA_DIR, "dataset.csv")
 OUTPUT_PATH = os.path.join(DATA_DIR, "cleaned_dataset.csv")
 
 def clean_data():
+    # create data directory if needed
+    os.makedirs(DATA_DIR, exist_ok=True)
     if not os.path.exists(INPUT_PATH):
         print(f"Input file not found at {INPUT_PATH}")
+        print("Please place the raw dataset 'dataset.csv' in the top-level data folder.")
         return
 
     print("Loading raw dataset...")

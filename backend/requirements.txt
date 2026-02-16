@@ -12,3 +12,5 @@ python-dotenv
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
+# optional vector database client; install if you plan to use Pinecone
+pinecone

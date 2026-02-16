@@ -2,7 +2,9 @@ import pandas as pd
 import os
 
 # Use absolute path to be safe, echoing data_loader.py logic
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+# refer to root data directory (Recommendation root)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 DATASET_PATH = os.path.join(DATA_DIR, "dataset.csv")
 
 def run_eda():
