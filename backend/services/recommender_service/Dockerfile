@@ -7,13 +7,11 @@ COPY ../data /app/data
 COPY ../.env /app/.env
 
 # Copy shared module and service code
-COPY ./services/shared /app/shared
-COPY ./services/recommender_service /app/recommender_service
+COPY backend/services/shared /app/shared
+COPY backend/services/recommender_service /app/recommender_service
 
-# The recommender needs the dataset and models (copy from service folder)
-# legacy: still copy if any are placed there
-COPY ./services/recommender_service/*.csv /app/recommender_service/ || true
-COPY ./services/recommender_service/*.pkl /app/recommender_service/ || true
+# Ensure models are present
+COPY backend/services/recommender_service/*.pkl /app/recommender_service/
 
 # Expose port
 EXPOSE 8002

@@ -14,8 +14,8 @@ services:
 
   auth-service:
     build:
-      context: ./backend
-      dockerfile: services/auth_service/Dockerfile
+      context: .
+      dockerfile: backend/services/auth_service/Dockerfile
     ports:
       - "8001:8001"
     env_file:
@@ -28,13 +28,16 @@ services:
 
   recommender-service:
     build:
-      context: ./backend
-      dockerfile: services/recommender_service/Dockerfile
+      context: .
+      dockerfile: backend/services/recommender_service/Dockerfile
     ports:
       - "8002:8002"
     env_file:
       - ./backend/.env
     environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/spotify_db
+      - SECRET_KEY=your-secret-key-please-change-in-prod
+      - DATA_DIR=/app/data
       - PINECONE_API_KEY=${PINECONE_API_KEY}
       - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
       - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME}
@@ -43,14 +46,16 @@ services:
 
   analytics-service:
     build:
-      context: ./backend
-      dockerfile: services/analytics_service/Dockerfile
+      context: .
+      dockerfile: backend/services/analytics_service/Dockerfile
     ports:
       - "8003:8003"
     env_file:
       - ./backend/.env
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@database:5432/spotify_db
+      - SECRET_KEY=your-secret-key-please-change-in-prod
+      - DATA_DIR=/app/data
     volumes:
       - ./data:/app/data
     depends_on:
@@ -58,20 +63,29 @@ services:
 
   playlist-service:
     build:
-      context: ./backend
-      dockerfile: services/playlist_service/Dockerfile
+      context: .
+      dockerfile: backend/services/playlist_service/Dockerfile
     ports:
       - "8004:8004"
     env_file:
       - ./backend/.env
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@database:5432/spotify_db
+      - SECRET_KEY=your-secret-key-please-change-in-prod
+      - DATA_DIR=/app/data
+    volumes:
+      - ./data:/app/data
     depends_on:
       - database
 
   frontend:
     build:
       context: ./frontend
+      args:
+        - VITE_AUTH_SERVICE=http://localhost:8001
+        - VITE_RECOMMENDER_SERVICE=http://localhost:8002
+        - VITE_ANALYTICS_SERVICE=http://localhost:8003
+        - VITE_PLAYLIST_SERVICE=http://localhost:8004
     ports:
       - "80:80"
     depends_on:

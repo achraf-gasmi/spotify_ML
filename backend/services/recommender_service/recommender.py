@@ -14,7 +14,8 @@ load_dotenv()
 
 # dataset is stored at the workspace root, not inside services/.
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+# Handle data paths flexibly for Docker vs Local
+DATA_DIR = os.getenv("DATA_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"))
 DATASET_PATH = os.path.join(DATA_DIR, "cleaned_dataset.csv")
 
 FEATURE_COLS = [

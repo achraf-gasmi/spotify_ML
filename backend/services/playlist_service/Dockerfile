@@ -3,10 +3,10 @@ FROM spotify-base:latest
 WORKDIR /app
 
 # Copy shared module and service code
-COPY ./services/shared /app/shared
-COPY ./services/playlist_service /app/playlist_service
-# Playlist service imports Recommender for generation logic
-COPY ./services/recommender_service/recommender.py /app/recommender_service/recommender.py
+COPY backend/services/shared /app/shared
+COPY backend/services/playlist_service /app/playlist_service
+# Playlist service needs parts of Recommender
+COPY backend/services/recommender_service /app/recommender_service
 
 # Expose port
 EXPOSE 8004

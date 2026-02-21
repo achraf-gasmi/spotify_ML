@@ -79,7 +79,69 @@ def generate_workout_playlist(req: WorkoutPlaylistRequest):
 @app.get("/api/v1/playlists")
 def get_playlists(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     playlists = db.query(Playlist).filter(Playlist.user_id == current_user.id).all()
-    return [{"id": p.id, "name": p.name, "track_count": len(p.tracks)} for p in playlists]
+    return [{"id": p.id, "name": p.name, "track_count": len(p.tracks), "created_at": p.created_at} for p in playlists]
+
+@app.get("/api/v1/playlists/{playlist_id}")
+def get_playlist_details(playlist_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    playlist = db.query(Playlist).filter(Playlist.id == playlist_id, Playlist.user_id == current_user.id).first()
+    if not playlist:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+        
+    tracks = []
+    for track in playlist.tracks:
+        track_dict = {
+            "track_id": track.track_id,
+            "track_name": track.track_name,
+            "artists": track.artists,
+            "track_genre": track.track_genre,
+            "popularity": track.popularity
+        }
+        tracks.append(track_dict)
+        
+    return {
+        "id": playlist.id,
+        "name": playlist.name,
+        "tracks": tracks
+    }
+
+@app.post("/api/v1/playlists/custom")
+def create_custom_playlist(
+    req: CustomPlaylistRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    new_playlist = Playlist(name=req.name, user_id=current_user.id)
+    db.add(new_playlist)
+    db.commit()
+    db.refresh(new_playlist)
+    
+    db_tracks = db.query(TrackModel).filter(TrackModel.track_id.in_(req.track_ids)).all()
+    for db_track in db_tracks:
+        new_playlist.tracks.append(db_track)
+    db.commit()
+    
+    return {"playlist_id": new_playlist.id, "name": new_playlist.name, "track_count": len(db_tracks)}
+
+@app.post("/api/v1/playlists/{playlist_id}/tracks")
+def add_track_to_playlist(
+    playlist_id: int,
+    track_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    playlist = db.query(Playlist).filter(Playlist.id == playlist_id, Playlist.user_id == current_user.id).first()
+    if not playlist:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+        
+    track = db.query(TrackModel).filter(TrackModel.track_id == track_id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+        
+    if track not in playlist.tracks:
+        playlist.tracks.append(track)
+        db.commit()
+        
+    return {"message": "Track added to playlist"}
 
 if __name__ == "__main__":
     import uvicorn

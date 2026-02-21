@@ -7,6 +7,18 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
+
+ARG VITE_AUTH_SERVICE
+ARG VITE_RECOMMENDER_SERVICE
+ARG VITE_ANALYTICS_SERVICE
+ARG VITE_PLAYLIST_SERVICE
+
+# Create .env file for Vite build
+RUN echo "VITE_AUTH_SERVICE=$VITE_AUTH_SERVICE" > .env.production && \
+    echo "VITE_RECOMMENDER_SERVICE=$VITE_RECOMMENDER_SERVICE" >> .env.production && \
+    echo "VITE_ANALYTICS_SERVICE=$VITE_ANALYTICS_SERVICE" >> .env.production && \
+    echo "VITE_PLAYLIST_SERVICE=$VITE_PLAYLIST_SERVICE" >> .env.production
+
 RUN npm run build
 
 # Production stage

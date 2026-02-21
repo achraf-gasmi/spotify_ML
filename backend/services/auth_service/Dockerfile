@@ -3,8 +3,8 @@ FROM spotify-base:latest
 WORKDIR /app
 
 # Copy shared module and service code
-COPY ./services/shared /app/shared
-COPY ./services/auth_service /app/auth_service
+COPY backend/services/shared /app/shared
+COPY backend/services/auth_service /app/auth_service
 
 # Expose port
 EXPOSE 8001

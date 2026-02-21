@@ -61,6 +61,9 @@ function App() {
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false)
   const [trackToAddToPlaylist, setTrackToAddToPlaylist] = useState(null)
 
+  // Helper to safely get track ID
+  const getTrackId = (t) => t?.track_id || t?.id;
+
   // Preference Profile State
   const [savedProfiles, setSavedProfiles] = useState([])
   const [profileName, setProfileName] = useState('')
@@ -94,7 +97,7 @@ function App() {
 
   const fetchPreferences = async () => {
     try {
-      const response = await axios.get(`${SERVICES.AUTH}/api/v1/preferences`, getAuthHeaders())
+      const response = await axios.get(`${SERVICES.RECOMMENDER}/api/v1/preferences`, getAuthHeaders())
       setSavedProfiles(response.data)
     } catch (err) {
       console.error(err)
@@ -112,7 +115,7 @@ function App() {
         name: profileName,
         ...vibe
       }
-      await axios.post(`${SERVICES.AUTH}/api/v1/preferences`, payload, getAuthHeaders())
+      await axios.post(`${SERVICES.RECOMMENDER}/api/v1/preferences`, payload, getAuthHeaders())
       alert(`Profile "${profileName}" saved!`)
       setProfileName('')
       fetchPreferences()
@@ -128,7 +131,7 @@ function App() {
     if (!window.confirm("Delete this profile?")) return
     try {
       setLoading(true)
-      await axios.delete(`${SERVICES.AUTH}/api/v1/preferences/${profileId}`, getAuthHeaders())
+      await axios.delete(`${SERVICES.RECOMMENDER}/api/v1/preferences/${profileId}`, getAuthHeaders())
       fetchPreferences()
     } catch (err) {
       console.error(err)
@@ -158,27 +161,61 @@ function App() {
   }
 
   const handlePlayTrack = async (track) => {
+    const tid = getTrackId(track);
+    setSelectedTrack(track)
     try {
-      // Simulate play event
-      console.log(`Playing: ${track.track_name}`)
-      await axios.post(`${SERVICES.ANALYTICS}/api/v1/history?track_id=${track.track_id}`, null, getAuthHeaders())
+      const resp = await axios.get(`${SERVICES.RECOMMENDER}/api/v1/recommendations/${tid}?limit=10`)
+      setRecommendations(resp.data.recommendations)
+      await axios.post(`${SERVICES.ANALYTICS}/api/v1/history?track_id=${tid}`, null, getAuthHeaders())
       if (activeTab === 'analytics') fetchAnalytics()
     } catch (err) {
-      console.error('Failed to record history:', err)
+      console.error('Failed to record history or fetch recommendations:', err)
     }
   }
 
   const handleAddToPlaylist = async (playlistId) => {
+    console.log(`[Adding to Playlist] Target: ${playlistId}, Track:`, trackToAddToPlaylist);
     try {
       setLoading(true)
-      await axios.post(`${SERVICES.PLAYLIST}/api/v1/playlists/${playlistId}/tracks?track_id=${trackToAddToPlaylist.track_id}`, null, getAuthHeaders())
+      let targetPlaylistId = playlistId
+
+      if (playlistId === 'new') {
+        if (!playlistName) {
+          alert("Please enter a playlist name")
+          return
+        }
+        console.log(`[Creating New Playlist] "${playlistName}"`);
+        // Create new playlist first
+        const createResponse = await axios.post(`${SERVICES.PLAYLIST}/api/v1/playlists/custom`, {
+          name: playlistName,
+          track_ids: []
+        }, getAuthHeaders())
+
+        targetPlaylistId = createResponse.data.playlist_id;
+
+        if (!targetPlaylistId) {
+          throw new Error("Failed to get new playlist ID");
+        }
+
+        console.log(`[New Playlist Created] ID: ${targetPlaylistId}`);
+        setPlaylistName('')
+      }
+
+      const tid = trackToAddToPlaylist.track_id || trackToAddToPlaylist.id;
+      if (!tid) {
+        console.error("[Playlist Error] Track ID missing from object", trackToAddToPlaylist);
+        throw new Error("Track ID missing");
+      }
+
+      console.log(`[Final POST] URL: ${SERVICES.PLAYLIST}/api/v1/playlists/${targetPlaylistId}/tracks?track_id=${tid}`);
+      await axios.post(`${SERVICES.PLAYLIST}/api/v1/playlists/${targetPlaylistId}/tracks?track_id=${tid}`, null, getAuthHeaders())
       alert(`Track added to playlist!`)
       setShowPlaylistSelector(false)
       setTrackToAddToPlaylist(null)
-      if (activeTab === 'playlists') fetchPlaylists()
+      fetchPlaylists()
     } catch (err) {
-      console.error(err)
-      setError('Failed to add track to playlist')
+      console.error("[Playlist Action Failed]", err)
+      setError(`Failed to update playlist: ${err.response?.data?.detail || err.message}`)
     } finally {
       setLoading(false)
     }
@@ -315,7 +352,7 @@ function App() {
       // If we have recommendations but no mood/track selected (e.g. Workout), 
       // use the new custom playlist endpoint
       if (activeTab === 'workout' || !selectedMood && !selectedTrack) {
-        const trackIds = recommendations.map(t => t.track_id)
+        const trackIds = recommendations.map(getTrackId).filter(id => !!id)
         await axios.post(`${SERVICES.PLAYLIST}/api/v1/playlists/custom`, {
           name: playlistName,
           track_ids: trackIds
@@ -325,7 +362,7 @@ function App() {
         if (selectedMood) {
           payload.mood = selectedMood
         } else if (selectedTrack) {
-          payload.seed_track_id = selectedTrack.track_id
+          payload.seed_track_id = getTrackId(selectedTrack)
         }
         await axios.post(`${SERVICES.PLAYLIST}/api/v1/playlists/generate`, null, {
           params: payload,
@@ -498,9 +535,18 @@ function App() {
     }
     setHeaderTitle(titles[tab] || 'Spotify Music Intelligence')
   }
+  const handleReset = () => {
+    if (window.confirm("Nuclear Reset: Clear all local storage and refresh? Use this to fix sync issues.")) {
+      localStorage.clear();
+      window.location.reload(true);
+    }
+  }
 
   return (
     <div className="container">
+      <div style={{ position: 'fixed', bottom: '10px', right: '10px', zIndex: 9999, opacity: 0.2 }}>
+        <button className="btn outline" onClick={handleReset} style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Reset App Cache</button>
+      </div>
       <header className="header">
         <div className="header-content">
           <Music color="var(--accent-primary)" size={32} />
@@ -600,21 +646,36 @@ function App() {
                           setTrackToAddToPlaylist(track);
                           setShowPlaylistSelector(true);
                         }}
-                        selectedTrackId={selectedTrack?.track_id}
+                        selectedTrackId={getTrackId(selectedTrack)}
                       />
                     </div>
                   )}
 
                   {selectedTrack && recommendations.length > 0 && (
-                    <Recommendations
-                      title={`Recommendations for "${selectedTrack.track_name}"`}
-                      tracks={recommendations}
-                      onPlay={handlePlayTrack}
-                      onAddToPlaylist={(track) => {
-                        setTrackToAddToPlaylist(track);
-                        setShowPlaylistSelector(true);
-                      }}
-                    />
+                    <div className="recommendations-container">
+                      <div className="flex-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h2 style={{ margin: 0 }}>Recommendations for "{selectedTrack.track_name}"</h2>
+                        <div className="flex-row" style={{ gap: '0.5rem' }}>
+                          <input
+                            type="text"
+                            className="input"
+                            placeholder="New playlist name..."
+                            value={playlistName}
+                            onChange={(e) => setPlaylistName(e.target.value)}
+                            style={{ padding: '8px 16px', fontSize: '0.8rem' }}
+                          />
+                          <Button onClick={handleSavePlaylist} style={{ padding: '8px 16px', fontSize: '0.8rem' }}>Save As Playlist</Button>
+                        </div>
+                      </div>
+                      <TrackList
+                        tracks={recommendations}
+                        onPlay={handlePlayTrack}
+                        onAddToPlaylist={(track) => {
+                          setTrackToAddToPlaylist(track);
+                          setShowPlaylistSelector(true);
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
               </div>
@@ -657,16 +718,31 @@ function App() {
                 </div>
 
                 {selectedMood && recommendations.length > 0 && (
-                  <Recommendations
-                    title={`${selectedMood} Recommendations`}
-                    tracks={recommendations}
-                    onPlay={handlePlayTrack}
-                    onAddToPlaylist={(track) => {
-                      setTrackToAddToPlaylist(track);
-                      setShowPlaylistSelector(true);
-                    }}
-                    showSimilarity={false}
-                  />
+                  <div className="recommendations-container">
+                    <div className="flex-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <h2 style={{ margin: 0 }}>{selectedMood} Recommendations</h2>
+                      <div className="flex-row" style={{ gap: '0.5rem' }}>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="New playlist name..."
+                          value={playlistName}
+                          onChange={(e) => setPlaylistName(e.target.value)}
+                          style={{ padding: '8px 16px', fontSize: '0.8rem' }}
+                        />
+                        <Button onClick={handleSavePlaylist} style={{ padding: '8px 16px', fontSize: '0.8rem' }}>Save As Playlist</Button>
+                      </div>
+                    </div>
+                    <TrackList
+                      tracks={recommendations}
+                      onPlay={handlePlayTrack}
+                      onAddToPlaylist={(track) => {
+                        setTrackToAddToPlaylist(track);
+                        setShowPlaylistSelector(true);
+                      }}
+                      showSimilarity={false}
+                    />
+                  </div>
                 )}
               </div>
             )}
@@ -741,15 +817,30 @@ function App() {
                 </Card>
 
                 {recommendations.length > 0 ? (
-                  <Recommendations
-                    title="Your Vibe Matches"
-                    tracks={recommendations}
-                    onPlay={handlePlayTrack}
-                    onAddToPlaylist={(track) => {
-                      setTrackToAddToPlaylist(track);
-                      setShowPlaylistSelector(true);
-                    }}
-                  />
+                  <div className="recommendations-container">
+                    <div className="flex-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <h2 style={{ margin: 0 }}>Your Vibe Matches</h2>
+                      <div className="flex-row" style={{ gap: '0.5rem' }}>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="New playlist name..."
+                          value={playlistName}
+                          onChange={(e) => setPlaylistName(e.target.value)}
+                          style={{ padding: '8px 16px', fontSize: '0.8rem' }}
+                        />
+                        <Button onClick={handleSavePlaylist} style={{ padding: '8px 16px', fontSize: '0.8rem' }}>Save As Playlist</Button>
+                      </div>
+                    </div>
+                    <TrackList
+                      tracks={recommendations}
+                      onPlay={handlePlayTrack}
+                      onAddToPlaylist={(track) => {
+                        setTrackToAddToPlaylist(track);
+                        setShowPlaylistSelector(true);
+                      }}
+                    />
+                  </div>
                 ) : (
                   <div className="placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
                     <p>Adjust sliders and click Generate Matches</p>

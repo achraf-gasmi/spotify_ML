@@ -7,10 +7,10 @@ COPY ../data /app/data
 COPY ../.env /app/.env
 
 # Copy shared module and service code
-COPY ./services/shared /app/shared
-COPY ./services/analytics_service /app/analytics_service
-# Analytics service imports Recommender for trend logic
-COPY ./services/recommender_service/recommender.py /app/recommender_service/recommender.py
+COPY backend/services/shared /app/shared
+COPY backend/services/analytics_service /app/analytics_service
+# Analytics service needs parts of Recommender
+COPY backend/services/recommender_service /app/recommender_service
 
 # Expose port
 EXPOSE 8003
