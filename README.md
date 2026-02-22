@@ -2,6 +2,51 @@
 
 A sophisticated machine learning-powered application that goes beyond simple metadata to recommend music based on **audio features** (energy, valence, danceability, etc.).
 
+---
+
+## 🎬 Demo
+
+[![Watch the demo](https://img.shields.io/badge/Watch-Demo-red?style=for-the-badge&logo=youtube)](https://youtu.be/Q4dieFE8nOA)
+
+---
+
+## 📸 Screenshots
+
+### 🏠 Home — Search
+![Home](screenshots/1.png)
+
+### 😃 Mood-Based Discovery
+![Moods](screenshots/moods_.png)
+
+### 🎛️ Vibe Builder
+![Vibe Builder](screenshots/Vibe_Builder.png)
+
+### 🎵 Genre Explorer
+![Genre Explorer](screenshots/Genre1.png)
+
+### 📊 Genre DNA Analytics
+![Genre DNA](screenshots/Genre2.png)
+
+### 🧠 AI Genre Classifier
+![Classifier](screenshots/Classify.png)
+
+### 📈 Listening Analytics
+![Analytics](screenshots/Analyitics.png)
+
+### 🏃 Workout Generator — Setup
+![Workout Setup](screenshots/workout1.png)
+
+### 🏃 Workout Generator — Results
+![Workout Results](screenshots/workout2.png)
+
+### 📉 Global Music Trends
+![Trends](screenshots/trends.png)
+
+### 🤖 Personalized For You
+![For You](screenshots/for_you.png)
+
+---
+
 ## 🚀 Features
 
 ### 1. **Enhanced Mood-Based Discovery** 😃😢⚡🥳💪☕
@@ -43,14 +88,14 @@ Generate playlists that match the physical intensity of your workouts:
 
 ### 7. **Genre Analytics Dashboard** 📈🔍
 Deep dive into the characteristics of 125 different musical genres:
-- **Genre DNA**: Every genre has a dedicated analytics dashboard visualizing its unique audio profile (Energy, Danceability, etc.).
+- **Genre DNA**: Every genre has a dedicated analytics dashboard visualizing its unique audio profile.
 - **Market Insights**: Integrated data on average track popularity and top artists within each genre.
 - **Top Artist Discovery**: Identify the most representative artists for any given genre.
 
-### 9. **Hybrid "For You" Intelligence** 🤖✨
-- **Collaborative Filtering**: Recommends tracks based on what users with similar tastes are listening to.
-- **Content-Based (Pinecone)**: Uses a 12-feature vector space to find songs that "vibe" exactly like your history.
-- **Diagnostic Reset**: Built-in "Reset App Cache" tool to force-synchronize microservice updates and clear stale browser states.
+### 8. **Hybrid "For You" Intelligence** 🤖✨
+- **Collaborative Filtering**: Recommends tracks based on what users with similar tastes enjoy.
+- **Content-Based (Pinecone)**: Uses a 12-feature vector space to find songs that match your history.
+- **Diagnostic Reset**: Built-in "Reset App Cache" tool to force-synchronize microservice updates.
 
 ---
 
@@ -58,19 +103,22 @@ Deep dive into the characteristics of 125 different musical genres:
 
 ### Backend (Microservices)
 - **Framework**: FastAPI (Python 3.13)
-- **Vector Database**: Pinecone (v6) for sub-second similarity search.
-- **Database**: PostgreSQL (Containerized) with SQLAlchemy ORM.
-- **Security**: JWT Authentication with synchronized `SECRET_KEY`.
+- **Vector Database**: Pinecone (v6) for sub-second similarity search
+- **Database**: PostgreSQL (Containerized) with SQLAlchemy ORM
+- **Machine Learning**: `scikit-learn`, `xgboost`, `pandas`
+- **Security**: JWT Authentication with synchronized `SECRET_KEY`
 
 ### Frontend
 - **Framework**: React 19 (Vite)
-- **Visuals**: Real-time Audio Visualizer and Glassmorphism design.
+- **Design**: Real-time Audio Visualizer and Glassmorphism UI
+- **State**: React Hooks
+- **Communication**: Axios
 
 ---
 
 ## 💻 Installation & Setup (Docker Recommended)
 
-The entire platform is now optimized for **Docker Compose**.
+The entire platform is optimized for **Docker Compose**.
 
 ### 1. Build the Base Image
 ```bash
@@ -84,10 +132,23 @@ docker-compose up --build -d
 
 ### 3. Verification & Sync
 Once the containers are up:
-1. Access the UI at `http://localhost`.
-2. If you see cached data or "black screens", click the **"Reset App Cache"** button in the bottom-right corner.
-3. Seed the tracks (if empty) via: `docker exec -it recommendation-playlist-service-1 python shared/seed.py`
+1. Access the UI at `http://localhost`
+2. If you see cached data or black screens, click **"Reset App Cache"** in the bottom-right corner
+3. Seed the tracks if empty:
+```bash
+docker exec -it recommendation-playlist-service-1 python shared/seed.py
+```
 
 ---
 
-*Developed by Achraf Gasmi*
+## 👤 Author
+
+**Achraf Gasmi**
+- GitHub: [@achraf-gasmi](https://github.com/achraf-gasmi)
+- LinkedIn: [Achraf Gasmi](https://www.linkedin.com/in/achraf-gasmi-592766134/)
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.
