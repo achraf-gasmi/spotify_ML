@@ -16,7 +16,7 @@ A sophisticated machine learning-powered application that goes beyond simple met
 ![Home](Screenshots/1.png)
 
 ### 😃 Mood-Based Discovery
-![Moods](Screenshots/moods_.png)
+![Moods](Screenshots/moods.png)
 
 ### 🎛️ Vibe Builder
 ![Vibe Builder](Screenshots/Vibe_Builder.png)
