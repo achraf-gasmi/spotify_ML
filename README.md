@@ -13,37 +13,37 @@ A sophisticated machine learning-powered application that goes beyond simple met
 ## 📸 Screenshots
 
 ### 🏠 Home — Search
-![Home](/screenshots/1.png)
+![Home](Screenshots/1.png)
 
 ### 😃 Mood-Based Discovery
-![Moods](screenshots/moods_.png)
+![Moods](Screenshots/moods_.png)
 
 ### 🎛️ Vibe Builder
-![Vibe Builder](screenshots/Vibe_Builder.png)
+![Vibe Builder](Screenshots/Vibe_Builder.png)
 
 ### 🎵 Genre Explorer
-![Genre Explorer](screenshots/Genre1.png)
+![Genre Explorer](Screenshots/Genre1.png)
 
 ### 📊 Genre DNA Analytics
-![Genre DNA](screenshots/Genre2.png)
+![Genre DNA](Screenshots/Genre2.png)
 
 ### 🧠 AI Genre Classifier
-![Classifier](screenshots/Classify.png)
+![Classifier](Screenshots/Classify.png)
 
 ### 📈 Listening Analytics
-![Analytics](screenshots/Analyitics.png)
+![Analytics](Screenshots/Analyitics.png)
 
 ### 🏃 Workout Generator — Setup
-![Workout Setup](screenshots/workout1.png)
+![Workout Setup](Screenshots/workout1.png)
 
 ### 🏃 Workout Generator — Results
-![Workout Results](screenshots/workout2.png)
+![Workout Results](Screenshots/workout2.png)
 
 ### 📉 Global Music Trends
-![Trends](screenshots/trends.png)
+![Trends](Screenshots/trends.png)
 
 ### 🤖 Personalized For You
-![For You](screenshots/for_you.png)
+![For You](Screenshots/for_you.png)
 
 ---
 
