@@ -13,7 +13,7 @@ A sophisticated machine learning-powered application that goes beyond simple met
 ## 📸 Screenshots
 
 ### 🏠 Home — Search
-![Home](screenshots/1.png)
+![Home](/screenshots/1.png)
 
 ### 😃 Mood-Based Discovery
 ![Moods](screenshots/moods_.png)
